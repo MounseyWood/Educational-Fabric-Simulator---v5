@@ -2200,12 +2200,15 @@
             clothPoints[centerIdx].oldy = sphereCentre.y - sphereRadius;
             clothPoints[centerIdx].oldz = sphereCentre.z;
           } else if (formMode === "cylinder") {
+            // Set floor at the bottom of the cylinder
             floorY = cylinderBottomY;
           }
         } else {
+          // Default floor position for plane mode
           floorY = 150;
         }
 
+        // Create sub-points and constraints after the cloth base is established
         createSubPointsAndConstraints();
         
         // Initialize pressure values for all vertices
