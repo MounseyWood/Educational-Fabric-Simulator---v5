@@ -1,1 +1,3436 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Educational Fabric Simulator</title>
+    <!-- p5.js library -->
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.5.0/lib/p5.min.js"></script>
+    <style>
+      /* Global Layout & Colours */
+      body, html {
+        margin: 0;
+        padding: 0;
+        background: #111;
+        color: #fff;
+        font-family: Arial, 'Helvetica Neue', sans-serif;
+        height: 100%;
+        overflow: hidden;
+      }
 
+      /* UI Panel - Sliding from left */
+      #uiPanel {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 300px;
+        height: 100%;
+        background: #222;
+        box-shadow: 2px 0 8px rgba(0,0,0,0.5);
+        transform: translateX(-250px);
+        transition: transform 0.3s ease;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+      }
+
+      #uiPanel.expanded {
+        transform: translateX(0);
+      }
+
+      /* Toggle button moved to panel header */
+      #togglePanel {
+        margin-left: 10px;
+        width: 30px;
+        height: 30px;
+        background: transparent;
+        border: none;
+        color: white;
+        cursor: pointer;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      #togglePanel:hover {
+        background: #333;
+        border-radius: 4px;
+      }
+
+      #toggleIcon {
+        transition: transform 0.3s ease;
+      }
+
+      #uiPanel.expanded #toggleIcon {
+        transform: rotate(180deg);
+      }
+
+      /* Panel Header with toggle button */
+      .panel-header {
+        padding: 15px;
+        background: #1D1D1B;
+        display: flex;
+        align-items: center;
+        border-bottom: 1px solid #333;
+      }
+
+      .panel-title {
+        font-weight: bold;
+        flex-grow: 1;
+      }
+
+      /* Panel Content */
+      .panel-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0 15px;
+      }
+
+      /* Section Styles */
+      .control-section {
+        margin: 15px 0;
+        border-bottom: 1px solid #333;
+        padding-bottom: 10px;
+      }
+
+      .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        padding: 8px 0;
+      }
+
+      .section-header h2 {
+        margin: 0;
+        font-size: 16px;
+      }
+
+      .section-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+      }
+
+      .control-section.expanded .section-content {
+        max-height: 500px;
+      }
+
+      .chevron {
+        transition: transform 0.3s ease;
+      }
+
+      .control-section.expanded .chevron {
+        transform: rotate(180deg);
+      }
+
+      /* Parameter Styles */
+      .parameter {
+        margin: 10px 0;
+      }
+
+      .parameter-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 5px;
+      }
+
+      .parameter-name {
+        font-size: 14px;
+        flex-grow: 1;
+      }
+
+      /* Info icon - UPDATED: moved to left side of controls */
+      .info-button {
+        margin-right: 10px;
+      }
+
+      .info-icon {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        background: #444;
+        color: white;
+        border-radius: 50%;
+        text-align: center;
+        line-height: 16px;
+        font-size: 12px;
+        cursor: help;
+        transition: background-color 0.3s;
+      }
+
+      .info-icon:hover {
+        background-color: #009cde;
+      }
+
+      /* Toggle Switch */
+      .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 40px;
+        height: 20px;
+      }
+
+      .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+
+      .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #333;
+        transition: .4s;
+        border-radius: 20px;
+      }
+
+      .slider:before {
+        position: absolute;
+        content: "";
+        height: 16px;
+        width: 16px;
+        left: 2px;
+        bottom: 2px;
+        background-color: white;
+        transition: .4s;
+        border-radius: 50%;
+      }
+
+      input:checked + .slider {
+        background-color: #009cde;
+      }
+
+      input:checked + .slider:before {
+        transform: translateX(20px);
+      }
+
+      /* Parameter Controls */
+      .parameter-controls {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+      }
+
+      .parameter.active .parameter-controls {
+        max-height: 100px;
+      }
+
+      /* Radio Button Styles */
+      .radio-options {
+        display: flex;
+        gap: 10px;
+        margin: 10px 0;
+        flex-wrap: wrap;
+      }
+
+      .radio-option {
+        flex: 1;
+        min-width: 80px;
+        text-align: center;
+      }
+
+      .radio-option label {
+        display: block;
+        padding: 5px;
+        background: #333;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      .radio-option input {
+        display: none;
+      }
+
+      .radio-option input:checked + label {
+        background: #009cde;
+      }
+
+      /* Slider Styles */
+      .range-slider {
+        width: 100%;
+        margin: 10px 0;
+      }
+
+      .range-slider input {
+        width: 100%;
+        -webkit-appearance: none;
+        height: 5px;
+        border-radius: 5px;
+        background: #333;
+        outline: none;
+      }
+
+      .range-slider input::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        background: #009cde;
+        cursor: pointer;
+      }
+
+      .range-value {
+        text-align: right;
+        font-size: 12px;
+        color: #aaa;
+      }
+
+      /* Bottom Controls */
+      .bottom-controls {
+        padding: 15px;
+        background: #1D1D1B;
+        display: flex;
+        justify-content: space-between;
+        border-top: 1px solid #333;
+      }
+
+      .control-button {
+        padding: 10px;
+        background: #333;
+        border: none;
+        border-radius: 4px;
+        color: white;
+        cursor: pointer;
+        min-width: 80px;
+        transition: background 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+      }
+
+      .control-button:hover {
+        background: #444;
+      }
+
+      .control-button.play {
+        background: #009cde;
+      }
+
+      .control-button.play:hover {
+        background: #00b0f5;
+      }
+
+      /* Canvas Container */
+      #canvasContainer {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+      }
+
+      /* New popup system */
+      .popup-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 200;
+      }
+
+      .popup-content {
+        background: #222;
+        border-radius: 6px;
+        padding: 20px;
+        width: 80%;
+        max-width: 600px;
+        max-height: 80vh;
+        overflow-y: auto;
+        position: relative;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      }
+
+      .popup-close {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: transparent;
+        border: none;
+        color: white;
+        font-size: 20px;
+        cursor: pointer;
+      }
+
+      .popup-title {
+        font-size: 18px;
+        margin-top: 0;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #333;
+      }
+
+      .popup-content ul {
+        padding-left: 20px;
+      }
+
+      .popup-content li {
+        margin-bottom: 8px;
+      }
+
+      /* Fabric Presets Styles */
+      .preset-dropdown {
+        width: 100%;
+        padding: 8px;
+        background-color: #333;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        margin: 10px 0;
+        cursor: pointer;
+      }
+
+      .preset-dropdown option {
+        background-color: #222;
+        color: white;
+      }
+
+      .preset-description {
+        font-size: 13px;
+        margin: 10px 0;
+        padding: 10px;
+        background-color: #1D1D1B;
+        border-radius: 4px;
+        line-height: 1.4;
+      }
+
+      /* Mobile Styles */
+      @media (max-width: 768px) {
+        #uiPanel {
+          top: auto;
+          bottom: 0;
+          left: 0;
+          width: 100%;
+          height: 60%;
+          transform: translateY(calc(100% - 50px));
+        }
+
+        #uiPanel.expanded {
+          transform: translateY(0);
+        }
+
+        .panel-header {
+          flex-direction: row-reverse;
+        }
+
+        #togglePanel {
+          transform: rotate(90deg);
+        }
+
+        #uiPanel.expanded #togglePanel {
+          transform: rotate(270deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Popup Overlay for Educational Content -->
+    <div class="popup-overlay" id="popupOverlay">
+      <div class="popup-content">
+        <button class="popup-close" id="popupClose">×</button>
+        <h3 class="popup-title" id="popupTitle">Understanding Fabric Physics</h3>
+        <div id="popupText"></div>
+      </div>
+    </div>
+  
+    <!-- UI Panel -->
+    <div id="uiPanel">
+      <div class="panel-header">
+        <div class="panel-title">Educational Fabric Simulator</div>
+        <button id="togglePanel">
+          <svg id="toggleIcon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
+      </div>
+      <div class="panel-content">
+        <!-- Simulation Mode Section -->
+        <div class="control-section expanded">
+          <div class="section-header">
+            <div class="info-button" data-info="simulation-mode">
+              <span class="info-icon">i</span>
+            </div>
+            <h2>Simulation Mode</h2>
+            <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </div>
+          <div class="section-content">
+            <!-- Simulation Mode Selection -->
+            <div class="parameter">
+              <div class="radio-options">
+                <div class="radio-option">
+                  <input type="radio" id="sim-plane" name="simulation-mode" checked>
+                  <label for="sim-plane">Plane</label>
+                </div>
+                <div class="radio-option">
+                  <input type="radio" id="sim-draped" name="simulation-mode">
+                  <label for="sim-draped">Draped</label>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Pinning Mode (for Plane) -->
+            <div class="parameter" id="plane-options">
+              <div class="parameter-header">
+                <div class="info-button" data-info="pinning-mode">
+                  <span class="info-icon">i</span>
+                </div>
+                <span class="parameter-name">Pinning</span>
+              </div>
+              <div class="radio-options">
+                <div class="radio-option">
+                  <input type="radio" id="pin-top" name="pinning-mode" checked>
+                  <label for="pin-top">Top Edge</label>
+                </div>
+                <div class="radio-option">
+                  <input type="radio" id="pin-corners" name="pinning-mode">
+                  <label for="pin-corners">Corners</label>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Form Mode (for Draped) -->
+            <div class="parameter" id="draped-options" style="display: none;">
+              <div class="parameter-header">
+                <div class="info-button" data-info="form-mode">
+                  <span class="info-icon">i</span>
+                </div>
+                <span class="parameter-name">Form</span>
+              </div>
+              <div class="radio-options">
+                <div class="radio-option">
+                  <input type="radio" id="form-sphere" name="form-mode" checked>
+                  <label for="form-sphere">Sphere</label>
+                </div>
+                <div class="radio-option">
+                  <input type="radio" id="form-cylinder" name="form-mode">
+                  <label for="form-cylinder">Cylinder</label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Interaction Section -->
+        <div class="control-section">
+          <div class="section-header">
+            <div class="info-button" data-info="interaction">
+              <span class="info-icon">i</span>
+            </div>
+            <h2>Interaction</h2>
+            <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </div>
+          <div class="section-content">
+            <div class="parameter">
+              <div class="radio-options">
+                <div class="radio-option">
+                  <input type="radio" id="interact-rotate" name="interaction-mode" checked>
+                  <label for="interact-rotate">Rotate</label>
+                </div>
+                <div class="radio-option">
+                  <input type="radio" id="interact-drag" name="interaction-mode">
+                  <label for="interact-drag">Drag</label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- NEW: Fabric Presets Section -->
+        <div class="control-section">
+          <div class="section-header">
+            <div class="info-button" data-info="fabric-presets">
+              <span class="info-icon">i</span>
+            </div>
+            <h2>Fabric Presets</h2>
+            <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </div>
+          <div class="section-content">
+            <!-- Fiber Selection -->
+            <div class="parameter">
+              <div class="parameter-header">
+                <div class="info-button" data-info="fiber-selection">
+                  <span class="info-icon">i</span>
+                </div>
+                <span class="parameter-name">Fiber Type</span>
+              </div>
+              <select id="fiber-preset" class="preset-dropdown">
+                <option value="none">Select Fiber...</option>
+                <optgroup label="Traditional Fibers">
+                  <option value="cotton">Cotton</option>
+                  <option value="silk">Silk</option>
+                  <option value="wool">British Wool</option>
+                  <option value="linen">Flax/Linen</option>
+                </optgroup>
+                <optgroup label="Synthetic Fibers">
+                  <option value="polyester">Polyester</option>
+                  <option value="recycledPolyester">Recycled Polyester</option>
+                </optgroup>
+                <optgroup label="Alternative Fibers">
+                  <option value="hemp">Organic Hemp</option>
+                  <option value="nettle">Nettle</option>
+                  <option value="mushroom">Mushroom Leather</option>
+                  <option value="seaweed">Seaweed/Algae</option>
+                </optgroup>
+              </select>
+              <div id="fiber-description" class="preset-description" style="display: none;"></div>
+            </div>
+            
+            <!-- Construction Selection -->
+            <div class="parameter">
+              <div class="parameter-header">
+                <div class="info-button" data-info="construction-selection">
+                  <span class="info-icon">i</span>
+                </div>
+                <span class="parameter-name">Construction</span>
+              </div>
+              <select id="construction-preset" class="preset-dropdown">
+                <option value="none">Select Construction...</option>
+                <optgroup label="Woven Structures">
+                  <option value="plainWeave">Plain Weave</option>
+                  <option value="twillWeave">Twill Weave</option>
+                  <option value="satinWeave">Satin Weave</option>
+                  <option value="jacquardWeave">Jacquard Weave</option>
+                </optgroup>
+                <optgroup label="Knit Structures">
+                  <option value="jerseyKnit">Jersey Knit</option>
+                  <option value="ribKnit">Rib Knit</option>
+                  <option value="interlockKnit">Interlock Knit</option>
+                </optgroup>
+                <optgroup label="Other Constructions">
+                  <option value="felt">Felt</option>
+                  <option value="nonwoven">Non-woven</option>
+                  <option value="bonded">Bonded/Fused</option>
+                </optgroup>
+              </select>
+              <div id="construction-description" class="preset-description" style="display: none;"></div>
+            </div>
+            
+            <!-- Applied Combination -->
+            <div class="parameter">
+              <div class="parameter-header">
+                <div class="info-button" data-info="applied-combination">
+                  <span class="info-icon">i</span>
+                </div>
+                <span class="parameter-name">Applied Combination</span>
+              </div>
+              <div id="combination-description" class="preset-description">
+                Select a fiber type and construction method to see how they combine.
+              </div>
+              <button id="apply-preset" class="control-button" style="width: 100%; margin-top: 10px;">
+                Apply Settings
+              </button>
+            </div>
+          </div>
+        </div>
+        <!-- Fabric Properties Section -->
+        <div class="control-section">
+          <div class="section-header">
+            <div class="info-button" data-info="fabric-properties">
+              <span class="info-icon">i</span>
+            </div>
+            <h2>Fabric Properties</h2>
+            <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </div>
+          <div class="section-content">
+            <!-- Reordered properties with new ones: Stretch, Shear, Bending, Buckling, Damping, Weight, Friction -->
+            
+            <!-- Stretch Parameter -->
+            <div class="parameter">
+              <div class="parameter-header">
+                <div class="info-button" data-info="stretch">
+                  <span class="info-icon">i</span>
+                </div>
+                <span class="parameter-name">Stretch</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="stretch-toggle">
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div class="parameter-controls">
+                <div class="range-slider">
+                  <input type="range" id="stretch-slider" min="0.8" max="1.2" step="0.01" value="1.0">
+                </div>
+                <div class="range-value">1.0</div>
+              </div>
+            </div>
+            
+            <!-- Shear Parameter -->
+            <div class="parameter">
+              <div class="parameter-header">
+                <div class="info-button" data-info="shear">
+                  <span class="info-icon">i</span>
+                </div>
+                <span class="parameter-name">Shear</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="shear-toggle">
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div class="parameter-controls">
+                <div class="range-slider">
+                  <input type="range" id="shear-slider" min="0.8" max="1.2" step="0.01" value="1.0">
+                </div>
+                <div class="range-value">1.0</div>
+              </div>
+            </div>
+            
+            <!-- Bending Parameter -->
+            <div class="parameter">
+              <div class="parameter-header">
+                <div class="info-button" data-info="bending">
+                  <span class="info-icon">i</span>
+                </div>
+                <span class="parameter-name">Bending</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="bending-toggle">
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div class="parameter-controls">
+                <div class="range-slider">
+                  <input type="range" id="bending-slider" min="0.8" max="1.2" step="0.01" value="1.0">
+                </div>
+                <div class="range-value">1.0</div>
+              </div>
+            </div>
+            
+            <!-- NEW: Buckling Parameter -->
+            <div class="parameter">
+              <div class="parameter-header">
+                <div class="info-button" data-info="buckling">
+                  <span class="info-icon">i</span>
+                </div>
+                <span class="parameter-name">Buckling</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="buckling-toggle">
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div class="parameter-controls">
+                <div class="range-slider">
+                  <input type="range" id="buckling-slider" min="0" max="1" step="0.01" value="0.5">
+                </div>
+                <div class="range-value">0.5</div>
+              </div>
+            </div>
+            
+            <!-- Damping Parameter -->
+            <div class="parameter">
+              <div class="parameter-header">
+                <div class="info-button" data-info="damping">
+                  <span class="info-icon">i</span>
+                </div>
+                <span class="parameter-name">Damping</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="damping-toggle">
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div class="parameter-controls">
+                <div class="range-slider">
+                  <input type="range" id="damping-slider" min="0.90" max="1.0" step="0.01" value="0.98">
+                </div>
+                <div class="range-value">0.98</div>
+              </div>
+            </div>
+            
+            <!-- Weight Parameter -->
+            <div class="parameter">
+              <div class="parameter-header">
+                <div class="info-button" data-info="weight">
+                  <span class="info-icon">i</span>
+                </div>
+                <span class="parameter-name">Weight</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="weight-toggle">
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div class="parameter-controls">
+                <div class="range-slider">
+                  <input type="range" id="weight-slider" min="0.5" max="2.0" step="0.1" value="1.0">
+                </div>
+                <div class="range-value">1.0</div>
+              </div>
+            </div>
+            
+            <!-- NEW: Friction Parameter -->
+            <div class="parameter">
+              <div class="parameter-header">
+                <div class="info-button" data-info="friction">
+                  <span class="info-icon">i</span>
+                </div>
+                <span class="parameter-name">Friction</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="friction-toggle">
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div class="parameter-controls">
+                <div class="range-slider">
+                  <input type="range" id="friction-slider" min="0" max="1" step="0.01" value="0.5">
+                </div>
+                <div class="range-value">0.5</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Forces Section -->
+        <div class="control-section">
+          <div class="section-header">
+            <div class="info-button" data-info="forces">
+              <span class="info-icon">i</span>
+            </div>
+            <h2>Forces</h2>
+            <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </div>
+          <div class="section-content">
+            <!-- Gravity Parameter -->
+            <div class="parameter">
+              <div class="parameter-header">
+                <div class="info-button" data-info="gravity">
+                  <span class="info-icon">i</span>
+                </div>
+                <span class="parameter-name">Gravity</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="gravity-toggle">
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div class="parameter-controls">
+                <div class="range-slider">
+                  <input type="range" id="gravity-slider" min="0" max="1" step="0.01" value="0.4">
+                </div>
+                <div class="range-value">0.4</div>
+              </div>
+            </div>
+            
+            <!-- Wind X Parameter -->
+            <div class="parameter">
+              <div class="parameter-header">
+                <div class="info-button" data-info="wind-x">
+                  <span class="info-icon">i</span>
+                </div>
+                <span class="parameter-name">Wind X</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="windx-toggle">
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div class="parameter-controls">
+                <div class="range-slider">
+                  <input type="range" id="windx-slider" min="-1" max="1" step="0.01" value="0.2">
+                </div>
+                <div class="range-value">0.2</div>
+              </div>
+            </div>
+            
+            <!-- Wind Y Parameter -->
+            <div class="parameter">
+              <div class="parameter-header">
+                <div class="info-button" data-info="wind-y">
+                  <span class="info-icon">i</span>
+                </div>
+                <span class="parameter-name">Wind Y</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="windy-toggle">
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div class="parameter-controls">
+                <div class="range-slider">
+                  <input type="range" id="windy-slider" min="-1" max="1" step="0.01" value="0">
+                </div>
+                <div class="range-value">0</div>
+              </div>
+            </div>
+            
+            <!-- Wind Z Parameter -->
+            <div class="parameter">
+              <div class="parameter-header">
+                <div class="info-button" data-info="wind-z">
+                  <span class="info-icon">i</span>
+                </div>
+                <span class="parameter-name">Wind Z</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="windz-toggle">
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div class="parameter-controls">
+                <div class="range-slider">
+                  <input type="range" id="windz-slider" min="-1" max="1" step="0.01" value="0.1">
+                </div>
+                <div class="range-value">0.1</div>
+              </div>
+            </div>
+            
+            <!-- Wind Buffer Parameter -->
+            <div class="parameter">
+              <div class="parameter-header">
+                <div class="info-button" data-info="wind-buffer">
+                  <span class="info-icon">i</span>
+                </div>
+                <span class="parameter-name">Wind Buffer</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="windbuf-toggle">
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <div class="parameter-controls">
+                <div class="range-slider">
+                  <input type="range" id="windbuf-slider" min="0" max="2" step="0.01" value="1.0">
+                </div>
+                <div class="range-value">1.0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Visualization Section -->
+        <div class="control-section">
+          <div class="section-header">
+            <div class="info-button" data-info="visualization">
+              <span class="info-icon">i</span>
+            </div>
+            <h2>Visualization</h2>
+            <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </div>
+          <div class="section-content">
+            <div class="parameter">
+              <div class="radio-options">
+                <div class="radio-option" style="flex: 0 0 45%;">
+                  <input type="radio" id="vis-normal" name="vis-mode" checked>
+                  <label for="vis-normal">Normal</label>
+                </div>
+                <div class="radio-option" style="flex: 0 0 45%;">
+                  <input type="radio" id="vis-cloth" name="vis-mode">
+                  <label for="vis-cloth">Cloth</label>
+                </div>
+                <div class="radio-option" style="flex: 0 0 45%;">
+                  <input type="radio" id="vis-overlaid" name="vis-mode">
+                  <label for="vis-overlaid">Overlaid</label>
+                </div>
+                <div class="radio-option" style="flex: 0 0 45%;">
+                  <input type="radio" id="vis-stress" name="vis-mode">
+                  <label for="vis-stress">Stress</label>
+                </div>
+                <div class="radio-option" style="flex: 0 0 45%;">
+                  <input type="radio" id="vis-strain" name="vis-mode">
+                  <label for="vis-strain">Strain</label>
+                </div>
+                <div class="radio-option" style="flex: 0 0 45%;">
+                  <input type="radio" id="vis-pressure" name="vis-mode">
+                  <label for="vis-pressure">Pressure</label>
+                </div>
+                <div class="radio-option" style="flex: 0 0 45%;">
+                  <input type="radio" id="vis-structure" name="vis-mode">
+                  <label for="vis-structure">Structure</label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="bottom-controls">
+        <button class="control-button" id="reset-btn">
+          <!-- Updated Reset icon to anti-clockwise arrow -->
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+            <path d="M3 3v5h5"></path>
+          </svg>
+          Reset
+        </button>
+        <button class="control-button" id="reset-view-btn">
+          <!-- Updated Reset View icon to compass -->
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+          </svg>
+          Reset View
+        </button>
+        <button class="control-button play" id="play-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="6" y="4" width="4" height="16"></rect>
+            <rect x="14" y="4" width="4" height="16"></rect>
+          </svg>
+          Pause
+        </button>
+      </div>
+    </div>
+    
+    <!-- Canvas Container -->
+    <div id="canvasContainer"></div>
+    <script>
+      /* EDUCATIONAL CONTENT */
+      const educationalContent = {
+        "simulation-mode": {
+          title: "Simulation Modes Explained",
+          content: `
+            <p>Choose how the fabric is displayed and simulated.</p>
+            <h4>Plane mode</h4>
+            <p>Creates a square of fabric suspended from pinning points. This is useful for studying:</p>
+            <ul>
+              <li>How fabric hangs under its own weight</li>
+              <li>The effects of different pinning arrangements</li>
+              <li>Basic fabric properties in isolation</li>
+            </ul>
+            <h4>Draped mode</h4>
+            <p>Places fabric over a 3D form. This helps understand:</p>
+            <ul>
+              <li>How fabric conforms to body shapes</li>
+              <li>Draping techniques used in fashion design</li>
+              <li>Interaction between fabric properties and underlying forms</li>
+            </ul>
+            <p>Fashion designers use draping techniques directly on mannequins to create patterns and understand how fabrics will behave in finished garments.</p>
+          `
+        },
+        "pinning-mode": {
+          title: "Pinning Modes",
+          content: `
+            <p>Controls how the fabric is held in place in Plane mode.</p>
+            <ul>
+              <li><strong>Top Edge:</strong> The entire top edge is fixed in place, simulating fabric hanging like a curtain or a draped garment.</li>
+              <li><strong>Corners:</strong> Only the four corners are fixed in place, allowing more movement in the fabric.</li>
+            </ul>
+            <p>Different pinning arrangements dramatically change how fabric responds to forces and its overall behavior.</p>
+          `
+        },
+        "form-mode": {
+          title: "Form Selection",
+          content: `
+            <p>Choose the 3D form that the fabric drapes over in Draped mode.</p>
+            <ul>
+              <li><strong>Sphere:</strong> Simulates fabric draped over a round object, useful for studying how fabric forms over curved surfaces.</li>
+              <li><strong>Cylinder:</strong> Simulates fabric draped over a cylindrical form, similar to a sleeve or tubular garment section.</li>
+            </ul>
+            <p>These simplified forms help isolate specific draping behaviors that are essential to fashion design.</p>
+          `
+        },
+        "interaction": {
+          title: "Interactive Controls for Fabric Exploration",
+          content: `
+            <p>Choose how you interact with the fabric: rotate to view from different angles, or drag to pull on the fabric.</p>
+            <ul>
+              <li><strong>Rotate:</strong> Move around the 3D space to view the fabric from different angles, helping you see all aspects of drape and behaviour.</li>
+              <li><strong>Drag:</strong> Directly manipulate points on the fabric to create different shapes and test how the fabric responds to force. This simulates how fabric might be manipulated during fitting or draping.</li>
+            </ul>
+            <p>In fashion design studios, designers physically manipulate fabrics in similar ways to understand their properties before cutting and sewing.</p>
+          `
+        },
+        "fabric-presets": {
+          title: "Fabric Presets: Understanding Material Choices",
+          content: `
+            <p>This section allows you to explore predefined fabric types commonly used in fashion design. Selecting presets will automatically configure appropriate values for fabric properties.</p>
+            <p>Fashion designers need to understand how different materials behave to make appropriate choices for specific garments:</p>
+            <ul>
+              <li>A draped evening gown requires fluid fabrics that hang elegantly</li>
+              <li>Structured jackets need fabrics with body that hold their shape</li>
+              <li>Sportswear requires stretchy, resilient materials that move with the body</li>
+            </ul>
+            <p>Explore how the combination of fiber and construction method creates fabrics with unique physical properties. Understanding these relationships is fundamental to making informed material choices for fashion design.</p>
+          `
+        },
+        "fiber-selection": {
+          title: "Fiber Types and Their Properties",
+          content: `
+            <p>The basic material of a fabric dramatically affects its behavior and sustainability profile.</p>
+            
+            <h4>Traditional Fibers</h4>
+            <ul>
+              <li><strong>Cotton:</strong> A natural cellulosic fiber, breathable and soft but with minimal stretch. UK-grown cotton trials are underway in certain regions.</li>
+              <li><strong>Silk:</strong> A protein fiber from silkworms, known for its lustrous appearance and exceptional drape. Small-scale sericulture exists in the UK.</li>
+              <li><strong>British Wool:</strong> A protein fiber from sheep abundant in the UK. Different sheep breeds produce wool with varying properties, from fine merino to coarser varieties.</li>
+              <li><strong>Flax/Linen:</strong> A bast fiber from the flax plant traditionally grown in cooler UK regions. Creates fabric with minimal stretch and excellent breathability.</li>
+            </ul>
+            
+            <h4>Synthetic Fibers</h4>
+            <ul>
+              <li><strong>Polyester:</strong> Petroleum-based synthetic fiber with high durability and wrinkle resistance, but limited breathability and environmental concerns.</li>
+              <li><strong>Recycled Polyester:</strong> Made from post-consumer plastic bottles, reducing virgin petroleum use and landfill waste. UK recycling facilities are expanding.</li>
+            </ul>
+            
+            <h4>Alternative Fibers</h4>
+            <ul>
+              <li><strong>Organic Hemp:</strong> Fast-growing bast fiber with minimal pesticide needs, suitable for UK climate. Creates durable textiles with antimicrobial properties.</li>
+              <li><strong>Nettle:</strong> Traditional UK fiber historically used before cotton imports. Renewed interest for sustainable local production.</li>
+              <li><strong>Mushroom Leather:</strong> Bio-based material from mycelium (fungal root structure), developed as an ethical alternative to animal leather. Some UK startups are pioneering this technology.</li>
+              <li><strong>Seaweed/Algae:</strong> Emerging fiber source from abundant oceanic materials. UK coastal regions are ideal for this resource which requires minimal freshwater.</li>
+            </ul>
+            
+            <p>Understanding fiber properties helps designers make sustainable, locally-sourced material choices while achieving desired garment characteristics.</p>
+          `
+        },
+        "construction-selection": {
+          title: "Textile Construction Methods",
+          content: `
+            <p>How fibers are assembled into fabric dramatically affects performance, appearance, and behavior.</p>
+            
+            <h4>Woven Structures</h4>
+            <p>Created by interlacing yarns at right angles. The UK has a rich heritage in weaving, from Scottish tartans to English worsted wools.</p>
+            <ul>
+              <li><strong>Plain Weave:</strong> The simplest weave with a uniform over-under pattern. Balanced, stable and generally less expensive to produce.</li>
+              <li><strong>Twill Weave:</strong> Creates diagonal lines with greater flexibility than plain weave. Common in denim, gabardine and British heritage fabrics.</li>
+              <li><strong>Satin Weave:</strong> Float yarns over multiple intersections creating a smooth, lustrous surface. Used for luxury textiles and special occasions.</li>
+              <li><strong>Jacquard Weave:</strong> Complex patterns woven directly into the fabric. The UK has specialized mills still producing complex jacquard textiles.</li>
+            </ul>
+            
+            <h4>Knit Structures</h4>
+            <p>Created by interloping yarn loops. The UK has historic knitting centers in Scotland and the Midlands.</p>
+            <ul>
+              <li><strong>Jersey Knit:</strong> Single-knit structure with distinct sides, naturally stretchy. Used in T-shirts and casual wear.</li>
+              <li><strong>Rib Knit:</strong> Alternating raised ribs with excellent recovery and stretch. Used for cuffs, neckbands and form-fitting garments.</li>
+              <li><strong>Interlock Knit:</strong> Double-knit structure that's stable, thick and identical on both sides. Used for higher quality casual and sportswear.</li>
+            </ul>
+            
+            <h4>Other Constructions</h4>
+            <ul>
+              <li><strong>Felt:</strong> Non-woven material created by matting fibers together with heat, moisture and pressure. Traditional British wool felting continues today.</li>
+              <li><strong>Non-woven:</strong> Fibers held together by mechanical, thermal, or chemical means without weaving or knitting. Used for interlinings and technical textiles.</li>
+              <li><strong>Bonded/Fused:</strong> Multiple layers joined together, often combining different materials for enhanced performance. Common in outerwear and technical garments.</li>
+            </ul>
+            
+            <p>Construction affects cost, with plain weaves typically being less expensive than complex patterns, and specialized technologies like bonded fabrics commanding premium prices.</p>
+          `
+        },
+        "applied-combination": {
+          title: "Understanding Fabric Combinations",
+          content: `
+            <p>The interaction between fiber content and construction method creates the unique properties of each fabric type.</p>
+            <p>Selecting both a fiber and construction method will:</p>
+            <ul>
+              <li>Show how these elements combine to affect fabric behavior</li>
+              <li>Configure the simulator with appropriate physical parameters</li>
+              <li>Provide insights into real-world applications</li>
+            </ul>
+            <p>Click "Apply Settings" to see how your selected combination behaves in the simulation.</p>
+            <p>Fashion designers must understand these combinations to select appropriate materials for specific design needs, considering both performance and sustainability factors.</p>
+          `
+        },
+        "fabric-properties": {
+          title: "Physical Properties of Fabric",
+          content: `
+            <p>Adjust the physical properties of the fabric to simulate different materials.</p>
+            <p>These parameters control how the fabric behaves physically:</p>
+            <ul>
+              <li><strong>Stretch:</strong> How much the fabric extends under tension</li>
+              <li><strong>Shear:</strong> How much the fabric resists diagonal deformation</li>
+              <li><strong>Bending:</strong> How stiffly the fabric resists folding</li>
+              <li><strong>Buckling:</strong> How fabric preserves its shape when bent</li>
+              <li><strong>Damping:</strong> How quickly movement energy dissipates (bouncy vs. still)</li>
+              <li><strong>Weight:</strong> How heavily the fabric is affected by gravity</li>
+              <li><strong>Friction:</strong> How much the fabric resists sliding against other surfaces</li>
+            </ul>
+            <p>These properties combine to create the distinctive behavior of different fabric types:</p>
+            <ul>
+              <li><strong>Silk:</strong> Low bending resistance, medium stretch, low weight</li>
+              <li><strong>Denim:</strong> High bending resistance, low stretch, high weight</li>
+              <li><strong>Jersey:</strong> Medium bending, high stretch, medium weight</li>
+            </ul>
+            <p>Fashion designers must understand these properties to select appropriate fabrics for different garment designs.</p>
+          `
+        },
+        "stretch": {
+          title: "Understanding Stretch in Fabrics",
+          content: `
+            <p>Controls how much the fabric can stretch. Lower values allow more extension.</p>
+            <p>The stretch parameter controls how much the fabric resists extension.</p>
+            <ul>
+              <li><strong>Higher values:</strong> Create a stiffer fabric that resists stretching.</li>
+              <li><strong>Lower values:</strong> Create a more elastic fabric that stretches easily.</li>
+            </ul>
+            <p>In fashion design, fabric stretch properties are crucial:</p>
+            <ul>
+              <li><strong>Woven fabrics</strong> like cotton, linen, and silk typically have minimal stretch.</li>
+              <li><strong>Knit fabrics</strong> like jersey have natural stretch due to their loop structure.</li>
+              <li><strong>Stretch wovens</strong> incorporate elastane (spandex) for comfort and movement.</li>
+            </ul>
+            <p>Stretch is usually measured as a percentage of elongation under standard tension.</p>
+          `
+        },
+        "shear": {
+          title: "Understanding Shear in Fabrics",
+          content: `
+            <p>Controls resistance to diagonal distortion. Higher values make fabric more rigid diagonally.</p>
+            <p>Shear resistance controls how much the fabric resists diagonal deformation.</p>
+            <ul>
+              <li><strong>Higher values:</strong> Create fabric that holds its shape when pulled diagonally.</li>
+              <li><strong>Lower values:</strong> Allow fabric to deform more easily along diagonal lines.</li>
+            </ul>
+            <p>In textile terms, shear relates to the fabric's bias properties:</p>
+            <ul>
+              <li>Fabric cut on the <strong>bias</strong> (45° to grain) has different shear properties.</li>
+              <li><strong>Twill weaves</strong> typically have more shear flexibility than plain weaves.</li>
+              <li>Fabrics with <strong>loose weaves</strong> allow more shear movement.</li>
+            </ul>
+            <p>Designers use bias-cut fabrics to create garments that drape elegantly around the body.</p>
+          `
+        },
+        "bending": {
+          title: "Understanding Bending in Fabrics",
+          content: `
+            <p>Controls fabric stiffness when folding. Higher values create stiffer fabric that resists sharp folds.</p>
+            <p>Bending stiffness controls how much the fabric resists folding and creasing.</p>
+            <ul>
+              <li><strong>Higher values:</strong> Create stiffer fabric that tends to hold a shape.</li>
+              <li><strong>Lower values:</strong> Create softer fabric that folds and drapes easily.</li>
+            </ul>
+            <p>In textiles, bending properties are measured as:</p>
+            <ul>
+              <li><strong>Drape coefficient:</strong> The ratio of draped to undraped area of fabric.</li>
+              <li><strong>Flexural rigidity:</strong> The fabric's resistance to bending under its own weight.</li>
+            </ul>
+            <p>Examples from fashion:</p>
+            <ul>
+              <li><strong>Chiffon</strong> has very low bending resistance, creating soft flowing effects.</li>
+              <li><strong>Organza</strong> has higher bending resistance, holding structured shapes.</li>
+              <li><strong>Denim</strong> has high bending resistance, creating defined folds and shapes.</li>
+            </ul>
+          `
+        },
+        "buckling": {
+          title: "Understanding Buckling in Fabrics",
+          content: `
+            <p>Reflects the tendency of fabric trying to preserve its shape when bent under force.</p>
+            <ul>
+              <li><strong>Higher values (closer to 100%):</strong> The fabric becomes easily bendable, like silk and jersey.</li>
+              <li><strong>Lower values (closer to 0%):</strong> The fabric becomes less bendable, like denim and wool.</li>
+            </ul>
+            <p>Buckling ratio affects how fabric forms wrinkles, folds and pleats in garments. Materials with different buckling properties create distinctive silhouettes in fashion design.</p>
+            <p>In technical textile testing, buckling behavior relates to a fabric's ability to return to its original shape after compression forces are applied.</p>
+          `
+        },
+        "damping": {
+          title: "Understanding Damping in Fabrics",
+          content: `
+            <p>Controls how quickly movement energy dissipates. Higher values make the fabric settle more quickly.</p>
+            <p>Damping controls how quickly movement energy is dissipated in a fabric.</p>
+            <ul>
+              <li><strong>High damping values (closer to 1.0):</strong> The fabric will settle quickly with minimal bouncing or oscillation.</li>
+              <li><strong>Low damping values (closer to 0.9):</strong> The fabric will bounce and oscillate longer before settling.</li>
+            </ul>
+            <p>In real fabrics, damping is affected by fiber type, weave, and finishing treatments:</p>
+            <ul>
+              <li><strong>Silk</strong> has natural resilience with moderate damping.</li>
+              <li><strong>Cotton</strong> typically has higher damping, settling quickly.</li>
+              <li><strong>Synthetic fabrics</strong> can vary widely depending on their composition.</li>
+            </ul>
+          `
+        },
+        "weight": {
+          title: "Understanding Weight in Fabrics",
+          content: `
+            <p>Controls the heaviness of the fabric. Higher values create a heavier drape.</p>
+            <p>Weight determines how heavily gravity affects the fabric.</p>
+            <ul>
+              <li><strong>Higher values:</strong> Simulate heavier fabrics with more pronounced draping.</li>
+              <li><strong>Lower values:</strong> Simulate lighter fabrics that hang less dramatically.</li>
+            </ul>
+            <p>In textile manufacturing, fabric weight is measured in:</p>
+            <ul>
+              <li><strong>GSM</strong> (grams per square meter) - the standard international measure.</li>
+              <li><strong>oz/yd²</strong> (ounces per square yard) - common in the US and UK.</li>
+            </ul>
+            <p>Example fabric weights:</p>
+            <ul>
+              <li><strong>Lightweight</strong> (50-150 GSM): Chiffon, georgette, light silk.</li>
+              <li><strong>Medium weight</strong> (150-300 GSM): Cotton shirting, linen, medium wool.</li>
+              <li><strong>Heavyweight</strong> (300+ GSM): Denim, canvas, heavy wool coating.</li>
+            </ul>
+          `
+        },
+        "friction": {
+          title: "Understanding Friction in Fabrics",
+          content: `
+            <p>Adjusts the friction between fabric and other objects.</p>
+            <p>The Friction Coefficient affects how the fabric interacts with other surfaces:</p>
+            <ul>
+              <li><strong>Higher values:</strong> Create more friction, causing fabric to cling to surfaces rather than slide.</li>
+              <li><strong>Lower values:</strong> Create less friction, allowing fabric to slide easily over surfaces.</li>
+            </ul>
+            <p>In garment design, friction affects:</p>
+            <ul>
+              <li>How layers of fabric interact with each other</li>
+              <li>How garments drape and move against the body</li>
+              <li>The comfort and wearability of clothing</li>
+            </ul>
+            <p>Different fabric treatments can modify friction properties:</p>
+            <ul>
+              <li><strong>Silicone finishes</strong> reduce friction, creating slippery fabrics</li>
+              <li><strong>Brushed fabrics</strong> like flannel have higher friction</li>
+              <li><strong>Rubber or silicone printing</strong> can add localized high-friction areas to garments</li>
+            </ul>
+          `
+        },
+        "forces": {
+          title: "External Forces Affecting Fabric",
+          content: `
+            <p>Adjust external forces acting on the fabric, like gravity and wind.</p>
+            <p>These controls simulate environmental forces acting on the fabric:</p>
+            <ul>
+              <li><strong>Gravity:</strong> Downward acceleration (Earth normal = 9.8 m/s²)</li>
+              <li><strong>Wind:</strong> Air movement that pushes on the fabric</li>
+            </ul>
+            <p>In fashion contexts, understanding how fabric responds to forces helps with:</p>
+            <ul>
+              <li>Designing garments that move well with the body</li>
+              <li>Predicting how garments will behave in different environments</li>
+              <li>Creating special effects for fashion shows or photoshoots</li>
+            </ul>
+            <p>Movement is a critical aspect of fashion design - garments are not static but worn on moving bodies in changing environments.</p>
+          `
+        },
+        "gravity": {
+          title: "Understanding Gravity in Fabric Simulation",
+          content: `
+            <p>Controls the strength of gravity pulling down on the fabric.</p>
+            <p>The gravity parameter controls the strength of downward acceleration on the fabric.</p>
+            <ul>
+              <li><strong>Higher values:</strong> Create stronger gravitational pull, causing faster falling.</li>
+              <li><strong>Lower values:</strong> Create weaker gravity effects, simulating environments like lunar gravity.</li>
+              <li><strong>Zero value:</strong> Removes gravity entirely, useful for space simulations or abstract designs.</li>
+            </ul>
+            <p>While real-world gravity is constant, changing this parameter allows designers to explore how fabrics might behave in different environments or to create artistic effects.</p>
+          `
+        },
+        "wind-x": {
+          title: "Horizontal Wind Force (X-axis)",
+          content: `
+            <p>Controls horizontal wind force from side to side.</p>
+            <p>Wind along the X-axis pushes the fabric horizontally (left to right or right to left).</p>
+            <ul>
+              <li><strong>Positive values:</strong> Wind pushing from left to right</li>
+              <li><strong>Negative values:</strong> Wind pushing from right to left</li>
+              <li><strong>Higher absolute values:</strong> Stronger wind force</li>
+            </ul>
+            <p>Understanding horizontal wind effects helps designers create garments that account for sideways air movement, such as wind blowing across the body during outdoor activities.</p>
+          `
+        },
+        "wind-y": {
+          title: "Vertical Wind Force (Y-axis)",
+          content: `
+            <p>Controls vertical wind force (up and down).</p>
+            <p>Wind along the Y-axis pushes the fabric vertically (up or down).</p>
+            <ul>
+              <li><strong>Positive values:</strong> Upward wind (like air vents from below)</li>
+              <li><strong>Negative values:</strong> Downward wind</li>
+              <li><strong>Higher absolute values:</strong> Stronger vertical force</li>
+            </ul>
+            <p>Vertical wind effects are particularly important when designing garments with fullness and volume, like skirts or dresses that might be affected by updrafts.</p>
+          `
+        },
+        "wind-z": {
+          title: "Depth Wind Force (Z-axis)",
+          content: `
+            <p>Controls wind force from front to back.</p>
+            <p>Wind along the Z-axis pushes the fabric in the depth dimension (front to back or back to front).</p>
+            <ul>
+              <li><strong>Positive values:</strong> Wind pushing from back to front</li>
+              <li><strong>Negative values:</strong> Wind pushing from front to back</li>
+              <li><strong>Higher absolute values:</strong> Stronger force along this axis</li>
+            </ul>
+            <p>Z-axis wind is crucial for understanding how garments billow or flatten when wind comes from directly in front or behind the wearer.</p>
+          `
+        },
+        "wind-buffer": {
+          title: "Wind Buffer Effects",
+          content: `
+            <p>Controls how wind forces vary over time, creating more natural movement.</p>
+            <p>Wind Buffer adds variation to wind strength, simulating gusts and lulls:</p>
+            <ul>
+              <li><strong>Higher values:</strong> More variation in wind strength, creating unpredictable fabric movement</li>
+              <li><strong>Lower values:</strong> More consistent wind strength</li>
+              <li><strong>Zero:</strong> Completely steady wind with no variation</li>
+            </ul>
+            <p>This parameter helps designers understand how fabrics respond to changing wind conditions rather than just constant force, creating more realistic simulations of outdoor environments.</p>
+          `
+        },
+        "visualization": {
+          title: "Visualization Methods for Fabric Analysis",
+          content: `
+            <p>Change how the fabric is displayed to highlight different aspects.</p>
+            <p>Different visualization modes help understand different aspects of fabric behavior:</p>
+            <ul>
+              <li><strong>Normal:</strong> Shows the internal structure with points and lines</li>
+              <li><strong>Cloth:</strong> Shows the fabric as a solid surface</li>
+              <li><strong>Overlaid:</strong> Combines solid surface with structural elements</li>
+              <li><strong>Stress:</strong> Heat map showing areas of tension (red) and compression (blue)</li>
+              <li><strong>Strain:</strong> Shows how much each section of fabric is stretching</li>
+              <li><strong>Pressure:</strong> Visualizes compression and tension forces within the fabric</li>
+              <li><strong>Structure:</strong> Color-coded constraint types (green=structural, yellow=shear, blue=bending)</li>
+            </ul>
+            <p>In textile engineering and fashion design, similar visualizations help with:</p>
+            <ul>
+              <li>Identifying stress points in garment designs</li>
+              <li>Predicting where fabrics might fail or deform</li>
+              <li>Understanding the internal forces in draped fabrics</li>
+            </ul>
+            <p>These technical views provide insights that aren't visible when looking at fabric normally.</p>
+          `
+        }
+      };
+
+      /* NEW: FABRIC PRESETS DEFINITIONS */
+      const fiberPresets = {
+        "cotton": {
+          name: "Cotton",
+          description: "A traditional natural cellulosic fiber. Cotton creates breathable fabrics that are comfortable against the skin, easily dyed, and relatively strong. British cotton growing is undergoing trials in certain regions as part of sustainable textile initiatives.",
+          params: {
+            stretch: 1.1,
+            shear: 1.0,
+            bending: 1.05,
+            buckling: 0.4,
+            damping: 0.97,
+            weight: 1.0,
+            friction: 0.6
+          }
+        },
+        "silk": {
+          name: "Silk",
+          description: "A luxury protein fiber produced by silkworms. Known for its exceptional drape, light weight, and lustrous appearance. Small-scale sericulture has been established in the UK, though most silk is imported.",
+          params: {
+            stretch: 1.05,
+            shear: 0.9,
+            bending: 0.85,
+            buckling: 0.7,
+            damping: 0.96,
+            weight: 0.7,
+            friction: 0.3
+          }
+        },
+        "wool": {
+          name: "British Wool",
+          description: "A traditional UK fiber with excellent insulation and natural elasticity. Different British sheep breeds produce varying qualities, from fine Merino-type wools to coarser varieties used for carpets and outerwear.",
+          params: {
+            stretch: 0.95,
+            shear: 0.95,
+            bending: 1.1,
+            buckling: 0.3,
+            damping: 0.98,
+            weight: 1.2,
+            friction: 0.7
+          }
+        },
+        "linen": {
+          name: "Flax/Linen",
+          description: "A bast fiber from the flax plant that can be grown in the UK. Creates crisp, breathable fabrics with minimal stretch and high durability. Linen has been grown in the UK historically, particularly in Northern Ireland.",
+          params: {
+            stretch: 1.15,
+            shear: 1.1,
+            bending: 1.15,
+            buckling: 0.2,
+            damping: 0.97,
+            weight: 1.1,
+            friction: 0.5
+          }
+        },
+        "polyester": {
+          name: "Polyester",
+          description: "A petroleum-based synthetic fiber. Highly durable with good wrinkle resistance but limited breathability. Traditional polyester production has significant environmental impacts, though the UK has facilities for recycled polyester production.",
+          params: {
+            stretch: 1.0,
+            shear: 0.95,
+            bending: 0.95,
+            buckling: 0.5,
+            damping: 0.95,
+            weight: 0.9,
+            friction: 0.4
+          }
+        },
+        "recycledPolyester": {
+          name: "Recycled Polyester",
+          description: "Made from post-consumer plastic bottles, reducing virgin petroleum use and landfill waste. Performs similarly to virgin polyester but with a significantly lower carbon footprint. UK facilities are expanding in this sector.",
+          params: {
+            stretch: 1.0,
+            shear: 0.95,
+            bending: 0.95,
+            buckling: 0.5,
+            damping: 0.95,
+            weight: 0.9,
+            friction: 0.4
+          }
+        },
+        "hemp": {
+          name: "Organic Hemp",
+          description: "A fast-growing bast fiber with minimal pesticide requirements, suitable for the UK climate. Creates durable textiles with antimicrobial properties and becomes softer with washing. UK hemp farming is increasing for sustainability.",
+          params: {
+            stretch: 1.15,
+            shear: 1.05,
+            bending: 1.1,
+            buckling: 0.25,
+            damping: 0.97,
+            weight: 1.2,
+            friction: 0.6
+          }
+        },
+        "nettle": {
+          name: "Nettle",
+          description: "A traditional UK fiber historically used before cotton imports. Similar to linen but from a plant that grows abundantly in the British countryside. Renewed interest for sustainable local production.",
+          params: {
+            stretch: 1.1,
+            shear: 1.0,
+            bending: 1.0,
+            buckling: 0.3,
+            damping: 0.97,
+            weight: 1.0,
+            friction: 0.5
+          }
+        },
+        "mushroom": {
+          name: "Mushroom Leather",
+          description: "An innovative bio-based material grown from mycelium (fungal root structure). Created as an ethical and sustainable alternative to animal leather. UK startups are pioneering this technology with local production.",
+          params: {
+            stretch: 1.0,
+            shear: 1.0,
+            bending: 1.1,
+            buckling: 0.2,
+            damping: 0.98,
+            weight: 1.3,
+            friction: 0.8
+          }
+        },
+        "seaweed": {
+          name: "Seaweed/Algae",
+          description: "An emerging fiber source from abundant marine resources. UK coastal regions provide ideal environments for sustainable harvesting and cultivation. Requires minimal freshwater and creates biodegradable textiles.",
+          params: {
+            stretch: 0.9,
+            shear: 0.9,
+            bending: 0.9,
+            buckling: 0.6,
+            damping: 0.96,
+            weight: 0.8,
+            friction: 0.5
+          }
+        }
+      };
+
+      const constructionPresets = {
+        "plainWeave": {
+          name: "Plain Weave",
+          description: "The simplest and most common weave structure with a basic over-under pattern. Creates balanced, stable fabrics with good durability and less elasticity. Generally less expensive to produce than other constructions.",
+          params: {
+            multipliers: {
+              stretch: 1.1,
+              shear: 1.0,
+              bending: 1.0,
+              buckling: 0.5
+            }
+          }
+        },
+        "twillWeave": {
+          name: "Twill Weave",
+          description: "Features diagonal lines created by passing weft threads over and under multiple warp threads. More flexible than plain weave with better drape. Common in denim, gabardine and many British heritage fabrics.",
+          params: {
+            multipliers: {
+              stretch: 1.05,
+              shear: 0.9,
+              bending: 0.95,
+              buckling: 0.6
+            }
+          }
+        },
+        "satinWeave": {
+          name: "Satin Weave",
+          description: "Creates a smooth, lustrous surface by floating yarns over multiple intersections. Less durable than plain or twill but with excellent drape. Used for luxury garments and evening wear.",
+          params: {
+            multipliers: {
+              stretch: 1.0,
+              shear: 0.85,
+              bending: 0.8,
+              buckling: 0.7
+            }
+          }
+        },
+        "jacquardWeave": {
+          name: "Jacquard Weave",
+          description: "Complex patterned weaves created using specialized looms. Can incorporate intricate designs directly into the fabric structure. The UK retains specialized mills producing luxury jacquard textiles.",
+          params: {
+            multipliers: {
+              stretch: 1.05,
+              shear: 0.9,
+              bending: 0.95,
+              buckling: 0.5
+            }
+          }
+        },
+        "jerseyKnit": {
+          name: "Jersey Knit",
+          description: "A single-knit structure with distinct sides, naturally stretchy in all directions. Used for T-shirts and casual wear. The UK has historic knitting centers in the Midlands producing jersey fabrics.",
+          params: {
+            multipliers: {
+              stretch: 0.8,
+              shear: 0.8,
+              bending: 0.9,
+              buckling: 0.8
+            }
+          }
+        },
+        "ribKnit": {
+          name: "Rib Knit",
+          description: "Features alternating raised ribs with excellent recovery and stretch. Often used for cuffs, neckbands and form-fitting garments. UK manufacturers specialize in technical rib constructions for sportswear.",
+          params: {
+            multipliers: {
+              stretch: 0.7,
+              shear: 0.8,
+              bending: 0.95,
+              buckling: 0.7
+            }
+          }
+        },
+        "interlockKnit": {
+          name: "Interlock Knit",
+          description: "A double-knit structure that's stable, thick and identical on both sides. Used for higher quality casual and sportswear. More expensive to produce than single jersey knit.",
+          params: {
+            multipliers: {
+              stretch: 0.85,
+              shear: 0.9,
+              bending: 1.0,
+              buckling: 0.6
+            }
+          }
+        },
+        "felt": {
+          name: "Felt",
+          description: "Non-woven material created by matting fibers together with heat, moisture and pressure. Traditional British wool felting continues today, particularly with local wools in rural communities.",
+          params: {
+            multipliers: {
+              stretch: 1.1,
+              shear: 1.1,
+              bending: 1.15,
+              buckling: 0.3
+            }
+          }
+        },
+        "nonwoven": {
+          name: "Non-woven",
+          description: "Fibers held together by mechanical, thermal, or chemical processes without weaving or knitting. Used for interlinings, medical textiles, and disposables. UK technical textile manufacturers produce specialized non-wovens.",
+          params: {
+            multipliers: {
+              stretch: 1.05,
+              shear: 1.0,
+              bending: 1.1,
+              buckling: 0.4
+            }
+          }
+        },
+        "bonded": {
+          name: "Bonded/Fused",
+          description: "Multiple layers joined together, often combining different materials for enhanced performance. Common in technical outerwear and high-performance garments. UK companies pioneer innovative bonding technologies.",
+          params: {
+            multipliers: {
+              stretch: 1.1,
+              shear: 1.1,
+              bending: 1.2,
+              buckling: 0.2
+            }
+          }
+        }
+      };
+     /* CLOTH SETTINGS */
+      let cols = 20, rows = 20, spacing = 20;
+      let clothPoints = [], clothConstraints = [];
+      let grid = [], horizontal = [], vertical = [], centers = [];
+
+      /* SPHERE for Draped mode */
+      let sphereCentre = { x: 0, y: 0, z: 0 };
+      let sphereRadius = 100;
+
+      /* CYLINDER parameters for Draped mode */
+      let cylRadius = 100;
+      let cylHeight = 300;
+      let cylinderTopY = -50;
+      let cylinderBottomY = cylinderTopY + cylHeight; // 250
+
+      /* Invisible floor */
+      let floorY = 150;
+
+      /* SIMULATION PARAMETERS (default) */
+      let damping = 0.98;
+      let iterations = 5;
+      let stretchFactor = 1.0;
+      let shearFactor = 1.0;
+      let bendingFactor = 1.0;
+      let weight = 1.0;
+      let windX = 0.2, windY = 0, windZ = 0.1;
+      let windBuffer = 1.0;
+      let gravity = 0.4;
+      
+      // New parameters
+      let bucklingFactor = 0.5;
+      let frictionCoeff = 0.5;
+
+      /* BASELINE (Off) values */
+      const BASE_DAMPING = 1.0;
+      const BASE_ITERATIONS = 1;
+      const BASE_STRETCH = 1.0;
+      const BASE_SHEAR = 1.0;
+      const BASE_BENDING = 1.0;
+      const BASE_WEIGHT = 1.0;
+      const BASE_WINDX = 0.0, BASE_WINDY = 0.0, BASE_WINDZ = 0.0;
+      const BASE_WINDBUFFER = 1.0;
+      const BASE_GRAVITY = 0.0;
+      const BASE_BUCKLING = 0.0;
+      const BASE_FRICTION = 0.0;
+
+      /* FLAGS for each parameter */
+      let dampingOn = false;
+      let iterationsOn = false;
+      let stretchOn = false;
+      let shearOn = false;
+      let bendingOn = false;
+      let weightOn = false;
+      let windXOn = false;
+      let windYOn = false;
+      let windZOn = false;
+      let windBufOn = false;
+      let gravityOn = false;
+      let bucklingOn = false;
+      let frictionOn = false;
+
+      // Shading modes
+      let shadingMode = "off"; // "off", "cloth", "overlaid", "stress", "strain", "pressure", "structure"
+
+      /* MODES */
+      let pinningMode = "top";         // Only for Plane mode
+      let interactionMode = "rotate";  // "rotate" or "drag"
+      let simulationMode = "plane";    // "plane" or "draped"
+      let formMode = "sphere";         // For Draped mode: "sphere" or "cylinder"
+
+      /* CLOTH POSITIONING */
+      let clothShiftX = -40;
+
+      /* ORIENTATION RESET FLAG */
+      let doResetOrientation = false;
+
+      /* PLAY/PAUSE FLAG */
+      let simulationRunning = true;
+
+      /* 3D DRAGGING VARIABLES */
+      let dragPointIndex = null;
+      let dragHandleSize = 8; // Size of the draggable point visuals
+      
+      // New drag variables for natural falloff effect
+      let dragRadius = 100; // Radius of influence for dragging
+      let dragFalloffExponent = 2; // How quickly influence diminishes (higher = sharper falloff)
+      let draggedPoints = []; // To track affected points
+
+      // For Stress/Strain shading, store each cell's rest area
+      let cellRestArea = [];
+      
+      // For pressure visualization
+      let vertexPressure = [];
+
+      // For Perlin noise for wind
+      let windNoiseOffset = 0;
+
+      // For Structure shading, track constraint type
+      const STRUCTURAL = "structural";
+      const SHEAR = "shear";
+      const BENDING = "bending";
+
+      // Color scales for visualizations
+      const stressColors = [
+        [0, 0, 255],    // Blue - minimal
+        [0, 255, 255],  // Cyan
+        [0, 255, 0],    // Green
+        [255, 255, 0],  // Yellow
+        [255, 165, 0],  // Orange
+        [255, 0, 0]     // Red - maximum
+      ];
+
+      // NEW: Current selections for fabric presets
+      let currentFiber = null;
+      let currentConstruction = null;
+      
+      function setup() {
+        let cnv = createCanvas(windowWidth, windowHeight, WEBGL);
+        cnv.parent("canvasContainer");
+        cnv.style("display", "block");
+        setupUI();
+        setupCloth();
+        
+        // Setup popup functionality
+        setupEducationalPopups();
+      }
+
+      function setupEducationalPopups() {
+        const popupOverlay = document.getElementById('popupOverlay');
+        const popupClose = document.getElementById('popupClose');
+        const popupTitle = document.getElementById('popupTitle');
+        const popupText = document.getElementById('popupText');
+        
+        // Setup info buttons
+        const infoButtons = document.querySelectorAll('.info-button');
+        infoButtons.forEach(button => {
+          button.addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent triggering parent elements
+            const infoType = this.getAttribute('data-info');
+            const content = educationalContent[infoType];
+            
+            if (content) {
+              popupTitle.textContent = content.title;
+              popupText.innerHTML = content.content;
+              popupOverlay.style.display = 'flex';
+            }
+          });
+        });
+        
+        // Close popup on X button click
+        popupClose.addEventListener('click', function() {
+          popupOverlay.style.display = 'none';
+        });
+        
+        // Close popup on overlay click
+        popupOverlay.addEventListener('click', function(e) {
+          if (e.target === popupOverlay) {
+            popupOverlay.style.display = 'none';
+          }
+        });
+        
+        // Close popup on ESC key
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && popupOverlay.style.display === 'flex') {
+            popupOverlay.style.display = 'none';
+          }
+        });
+      }
+
+      function setupUI() {
+        // Connect UI elements to their functionality
+        // Simulation Mode
+        document.getElementById('sim-plane').addEventListener('change', function() {
+          if (this.checked) {
+            simulationMode = "plane";
+            document.getElementById('plane-options').style.display = 'block';
+            document.getElementById('draped-options').style.display = 'none';
+            setupCloth();
+          }
+        });
+
+        document.getElementById('sim-draped').addEventListener('change', function() {
+          if (this.checked) {
+            simulationMode = "draped";
+            document.getElementById('plane-options').style.display = 'none';
+            document.getElementById('draped-options').style.display = 'block';
+            setupCloth();
+          }
+        });
+
+        // Pinning Mode
+        document.getElementById('pin-top').addEventListener('change', function() {
+          if (this.checked) {
+            pinningMode = "top";
+            if (simulationMode === "plane") setupCloth();
+          }
+        });
+
+        document.getElementById('pin-corners').addEventListener('change', function() {
+          if (this.checked) {
+            pinningMode = "corners";
+            if (simulationMode === "plane") setupCloth();
+          }
+        });
+
+        // Form Mode
+        document.getElementById('form-sphere').addEventListener('change', function() {
+          if (this.checked) {
+            formMode = "sphere";
+            if (simulationMode === "draped") setupCloth();
+          }
+        });
+
+        document.getElementById('form-cylinder').addEventListener('change', function() {
+          if (this.checked) {
+            formMode = "cylinder";
+            if (simulationMode === "draped") setupCloth();
+          }
+        });
+
+        // Interaction Mode
+        document.getElementById('interact-rotate').addEventListener('change', function() {
+          if (this.checked) interactionMode = "rotate";
+        });
+
+        document.getElementById('interact-drag').addEventListener('change', function() {
+          if (this.checked) interactionMode = "drag";
+        });
+
+        // NEW: Fabric Presets
+        setupFabricPresets();
+        
+        // Fabric Properties
+        setupToggleAndSlider('stretch', stretchFactor, function(value) {
+          stretchFactor = value;
+          stretchOn = true;
+          // Recreate constraints when stretch value changes
+          createConstraints();
+        }, function() {
+          stretchOn = false;
+          createConstraints();
+        });
+
+        setupToggleAndSlider('shear', shearFactor, function(value) {
+          shearFactor = value;
+          shearOn = true;
+          createConstraints();
+        }, function() {
+          shearOn = false;
+          createConstraints();
+        });
+
+        setupToggleAndSlider('bending', bendingFactor, function(value) {
+          bendingFactor = value;
+          bendingOn = true;
+          createConstraints();
+        }, function() {
+          bendingOn = false;
+          createConstraints();
+        });
+        
+        // NEW: Buckling
+        setupToggleAndSlider('buckling', bucklingFactor, function(value) {
+          bucklingFactor = value;
+          bucklingOn = true;
+        }, function() {
+          bucklingOn = false;
+        });
+
+        setupToggleAndSlider('damping', damping, function(value) {
+          damping = value;
+          dampingOn = true;
+        }, function() {
+          dampingOn = false;
+        });
+
+        setupToggleAndSlider('weight', weight, function(value) {
+          weight = value;
+          weightOn = true;
+        }, function() {
+          weightOn = false;
+        });
+        
+        // NEW: Friction
+        setupToggleAndSlider('friction', frictionCoeff, function(value) {
+          frictionCoeff = value;
+          frictionOn = true;
+        }, function() {
+          frictionOn = false;
+        });
+
+        // Forces
+        setupToggleAndSlider('gravity', gravity, function(value) {
+          gravity = value;
+          gravityOn = true;
+        }, function() {
+          gravityOn = false;
+        });
+
+        setupToggleAndSlider('windx', windX, function(value) {
+          windX = value;
+          windXOn = true;
+        }, function() {
+          windXOn = false;
+        });
+
+        setupToggleAndSlider('windy', windY, function(value) {
+          windY = value;
+          windYOn = true;
+        }, function() {
+          windYOn = false;
+        });
+
+        setupToggleAndSlider('windz', windZ, function(value) {
+          windZ = value;
+          windZOn = true;
+        }, function() {
+          windZOn = false;
+        });
+
+        setupToggleAndSlider('windbuf', windBuffer, function(value) {
+          windBuffer = value;
+          windBufOn = true;
+        }, function() {
+          windBufOn = false;
+        });
+
+        // Visualization Modes
+        document.getElementById('vis-normal').addEventListener('change', function() {
+          if (this.checked) shadingMode = "off";
+        });
+
+        document.getElementById('vis-cloth').addEventListener('change', function() {
+          if (this.checked) shadingMode = "cloth";
+        });
+
+        document.getElementById('vis-overlaid').addEventListener('change', function() {
+          if (this.checked) shadingMode = "overlaid";
+        });
+
+        document.getElementById('vis-stress').addEventListener('change', function() {
+          if (this.checked) shadingMode = "stress";
+        });
+
+        document.getElementById('vis-strain').addEventListener('change', function() {
+          if (this.checked) shadingMode = "strain";
+        });
+
+        document.getElementById('vis-pressure').addEventListener('change', function() {
+          if (this.checked) shadingMode = "pressure";
+        });
+
+        document.getElementById('vis-structure').addEventListener('change', function() {
+          if (this.checked) shadingMode = "structure";
+        });
+
+        // Bottom Control Buttons
+        document.getElementById('reset-btn').addEventListener('click', function() {
+          setupCloth();
+        });
+
+        document.getElementById('reset-view-btn').addEventListener('click', function() {
+          doResetOrientation = true;
+        });
+
+        document.getElementById('play-btn').addEventListener('click', function() {
+          simulationRunning = !simulationRunning;
+          
+          // Update button icon and text based on state
+          if (simulationRunning) {
+            this.innerHTML = `
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="6" y="4" width="4" height="16"></rect>
+                <rect x="14" y="4" width="4" height="16"></rect>
+              </svg>
+              Pause
+            `;
+          } else {
+            this.innerHTML = `
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              Play
+            `;
+          }
+        });
+
+        // Section expansion/collapse
+        document.querySelectorAll('.section-header').forEach(header => {
+          header.addEventListener('click', function() {
+            this.parentElement.classList.toggle('expanded');
+          });
+        });
+
+        // Toggle panel button
+        document.getElementById('togglePanel').addEventListener('click', function() {
+          document.getElementById('uiPanel').classList.toggle('expanded');
+        });
+      }
+
+      // NEW: Setup Fabric Presets functionality
+      function setupFabricPresets() {
+        const fiberDropdown = document.getElementById('fiber-preset');
+        const constructionDropdown = document.getElementById('construction-preset');
+        const fiberDescription = document.getElementById('fiber-description');
+        const constructionDescription = document.getElementById('construction-description');
+        const combinationDescription = document.getElementById('combination-description');
+        const applyButton = document.getElementById('apply-preset');
+        
+        // Fiber selection change event
+        fiberDropdown.addEventListener('change', function() {
+          const selectedFiber = this.value;
+          if (selectedFiber === 'none') {
+            fiberDescription.style.display = 'none';
+            currentFiber = null;
+          } else {
+            fiberDescription.textContent = fiberPresets[selectedFiber].description;
+            fiberDescription.style.display = 'block';
+            currentFiber = fiberPresets[selectedFiber];
+            
+            updateCombinationDescription();
+          }
+        });
+        
+        // Construction selection change event
+        constructionDropdown.addEventListener('change', function() {
+          const selectedConstruction = this.value;
+          if (selectedConstruction === 'none') {
+            constructionDescription.style.display = 'none';
+            currentConstruction = null;
+          } else {
+            constructionDescription.textContent = constructionPresets[selectedConstruction].description;
+            constructionDescription.style.display = 'block';
+            currentConstruction = constructionPresets[selectedConstruction];
+            
+            updateCombinationDescription();
+          }
+        });
+        
+        // Apply preset button event
+        applyButton.addEventListener('click', function() {
+          if (currentFiber && currentConstruction) {
+            applyFabricPreset();
+          } else {
+            // Show a message to select both fiber and construction
+            combinationDescription.textContent = "Please select both a fiber type and construction method to apply settings.";
+          }
+        });
+      }
+      
+      // Update the combination description when either fiber or construction changes
+      function updateCombinationDescription() {
+        const combinationDescription = document.getElementById('combination-description');
+        
+        if (currentFiber && currentConstruction) {
+          // Both are selected - show combined description
+          combinationDescription.textContent = `
+            ${currentFiber.name} with ${currentConstruction.name} construction: 
+            This combination creates a fabric with ${getStrengthDescription(currentFiber, currentConstruction, "stretch")} stretch, 
+            ${getStrengthDescription(currentFiber, currentConstruction, "bending")} body, and 
+            ${getStrengthDescription(currentFiber, currentConstruction, "weight")} weight.
+            Click "Apply Settings" to see how this fabric behaves.
+          `;
+        } else if (currentFiber) {
+          combinationDescription.textContent = "Please select a construction method to complete the fabric profile.";
+        } else if (currentConstruction) {
+          combinationDescription.textContent = "Please select a fiber type to complete the fabric profile.";
+        } else {
+          combinationDescription.textContent = "Select a fiber type and construction method to see how they combine.";
+        }
+      }
+      
+      // Helper function to describe parameter combinations
+      function getStrengthDescription(fiber, construction, param) {
+        let baseValue = fiber.params[param];
+        let multiplier = 1.0;
+        
+        if (construction.params.multipliers[param]) {
+          multiplier = construction.params.multipliers[param];
+        }
+        
+        let combinedValue = baseValue * multiplier;
+        
+        // Values are inverted for some parameters (lower value = more stretchy)
+        if (param === "stretch" || param === "shear") {
+          if (combinedValue < 0.9) return "high";
+          if (combinedValue < 1.0) return "moderate";
+          return "low";
+        } else {
+          if (combinedValue < 0.9) return "low";
+          if (combinedValue < 1.1) return "moderate";
+          return "high";
+        }
+      }
+      
+      // Apply the selected fabric preset parameters
+      function applyFabricPreset() {
+        if (!currentFiber || !currentConstruction) return;
+        
+        // Get base values from fiber
+        const fiberParams = currentFiber.params;
+        
+        // Get multipliers from construction
+        const constructionMultipliers = currentConstruction.params.multipliers;
+        
+        // Apply combined values
+        stretchFactor = fiberParams.stretch * (constructionMultipliers.stretch || 1.0);
+        shearFactor = fiberParams.shear * (constructionMultipliers.shear || 1.0);
+        bendingFactor = fiberParams.bending * (constructionMultipliers.bending || 1.0);
+        bucklingFactor = fiberParams.buckling * (constructionMultipliers.buckling || 1.0);
+        damping = fiberParams.damping;
+        weight = fiberParams.weight;
+        frictionCoeff = fiberParams.friction;
+        
+        // Update UI sliders
+        updateSliderValue('stretch-slider', stretchFactor);
+        updateSliderValue('shear-slider', shearFactor);
+        updateSliderValue('bending-slider', bendingFactor);
+        updateSliderValue('buckling-slider', bucklingFactor);
+        updateSliderValue('damping-slider', damping);
+        updateSliderValue('weight-slider', weight);
+        updateSliderValue('friction-slider', frictionCoeff);
+        
+        // Enable all parameters
+        document.getElementById('stretch-toggle').checked = true;
+        document.getElementById('shear-toggle').checked = true;
+        document.getElementById('bending-toggle').checked = true;
+        document.getElementById('buckling-toggle').checked = true;
+        document.getElementById('damping-toggle').checked = true;
+        document.getElementById('weight-toggle').checked = true;
+        document.getElementById('friction-toggle').checked = true;
+        document.getElementById('gravity-toggle').checked = true;
+        
+        // Set flags
+        stretchOn = true;
+        shearOn = true;
+        bendingOn = true;
+        bucklingOn = true;
+        dampingOn = true;
+        weightOn = true;
+        frictionOn = true;
+        gravityOn = true;
+        
+        // Activate controls in UI
+        document.querySelectorAll('.parameter').forEach(param => {
+          if (param.querySelector('input[type="checkbox"]')) {
+            param.classList.add('active');
+          }
+        });
+        
+        // Regenerate constraints with new values
+        createConstraints();
+        
+        // Provide feedback in the combination description
+        const combinationDescription = document.getElementById('combination-description');
+        combinationDescription.textContent = `Applied ${currentFiber.name} with ${currentConstruction.name} construction. You can adjust individual parameters to fine-tune the fabric behavior.`;
+      }
+      
+      // Helper function to update slider values
+      function updateSliderValue(sliderId, value) {
+        const slider = document.getElementById(sliderId);
+        const valueDisplay = slider.closest('.parameter-controls').querySelector('.range-value');
+        
+        slider.value = value;
+        valueDisplay.textContent = value;
+      }
+
+      function setupToggleAndSlider(id, initialValue, onChangeCallback, onToggleOffCallback) {
+        const toggle = document.getElementById(`${id}-toggle`);
+        const slider = document.getElementById(`${id}-slider`);
+        const valueDisplay = slider.closest('.parameter-controls').querySelector('.range-value');
+        
+        // Update the value display
+        valueDisplay.textContent = slider.value;
+        
+        // Setup toggle behavior
+        toggle.addEventListener('change', function() {
+          const parameter = this.closest('.parameter');
+          if (this.checked) {
+            parameter.classList.add('active');
+            onChangeCallback(parseFloat(slider.value));
+          } else {
+            parameter.classList.remove('active');
+            onToggleOffCallback();
+          }
+        });
+        
+        // Setup slider behavior
+        slider.addEventListener('input', function() {
+          valueDisplay.textContent = this.value;
+          if (toggle.checked) {
+            onChangeCallback(parseFloat(this.value));
+          }
+        });
+      }
+
+      /* Setup cloth based on simulation mode */
+      function setupCloth() {
+        clothPoints = [];
+        clothConstraints = [];
+        grid = [];
+        horizontal = [];
+        vertical = [];
+        centers = [];
+        cellRestArea = [];
+        dragPointIndex = null;
+        draggedPoints = [];
+        vertexPressure = [];
+
+        let clothWidth = (cols - 1) * spacing;
+        let clothHeight = (rows - 1) * spacing;
+
+        if (simulationMode === "plane") {
+          let startX = -clothWidth/2 + clothShiftX;
+          let startY = -clothHeight/2;
+          createClothPoints_Plane(startX, startY, 0);
+        } else {
+          // Draped mode
+          if (formMode === "sphere") {
+            sphereCentre = { x: 0, y: 0, z: 0 };
+            sphereRadius = 100;
+            let startY = -sphereRadius;
+            createClothPoints_Draped(-clothWidth/2, startY, -clothHeight/2);
+
+            // Pin centre cloth point to top of sphere
+            let midRow = Math.floor(rows/2);
+            let midCol = Math.floor(cols/2);
+            let centerIdx = grid[midRow][midCol];
+            clothPoints[centerIdx].pinned = true;
+            clothPoints[centerIdx].x = sphereCentre.x;
+            clothPoints[centerIdx].y = sphereCentre.y - sphereRadius;
+            clothPoints[centerIdx].z = sphereCentre.z;
+            clothPoints[centerIdx].oldx = sphereCentre.x;
+            clothPoints[centerIdx].oldy = sphereCentre.y - sphereRadius;
+            clothPoints[centerIdx].oldz = sphereCentre.z;
+          } else if (formMode === "cylinder") {
+            let startY = cylinderTopY;
+            createClothPoints_Draped(-clothWidth/2, startY, -clothHeight/2);
+
+            // Pin centre cloth point at cylinder's top centre
+            let midRow = Math.floor(rows/2);
+            let midCol = Math.floor(cols/2);
+            let centerIdx = grid[midRow][midCol];
+            clothPoints[centerIdx].pinned = true;
+            clothPoints[centerIdx].x = 0;
+            clothPoints[centerIdx].y = cylinderTopY;
+            clothPoints[centerIdx].z = 0;
+            clothPoints[centerIdx].oldx = 0;
+            clothPoints[centerIdx].oldy = cylinderTopY;
+            clothPoints[centerIdx].oldz = 0;
+          }
+        }
+
+        // Override floor if needed
+        if (simulationMode === "draped") {
+          if (formMode === "sphere") {
+            floorY = 150;
+          } else if (formMode === "cylinder") {
+            floorY = cylinderBottomY;
+          }
+        } else {
+          floorY = 150;
+        }
+
+        createSubPointsAndConstraints();
+        
+        // Initialize pressure values for all vertices
+        for (let i = 0; i < clothPoints.length; i++) {
+          vertexPressure[i] = 0;
+        }
+      }
+
+      function createClothPoints_Plane(startX, startY, startZ) {
+        for (let y = 0; y < rows; y++) {
+          grid[y] = [];
+          for (let x = 0; x < cols; x++) {
+            let px = startX + x * spacing;
+            let py = startY + y * spacing;
+            let pz = startZ;
+            let pinned = false;
+            if (pinningMode === "top") {
+              pinned = (y === 0);
+            } else if (pinningMode === "corners") {
+              pinned = (
+                (x === 0 && y === 0) ||
+                (x === cols-1 && y === 0) ||
+                (x === 0 && y === rows-1) ||
+                (x === cols-1 && y === rows-1)
+              );
+            }
+            clothPoints.push({
+              x: px, y: py, z: pz,
+              oldx: px, oldy: py, oldz: pz,
+              pinned: pinned,
+              userDragged: false, // Flag for dragging
+              nx: 0, ny: 1, nz: 0 // Normal vector
+            });
+            grid[y][x] = clothPoints.length - 1;
+          }
+        }
+      }
+
+      function createClothPoints_Draped(startX, fixedY, startZ) {
+        for (let rz = 0; rz < rows; rz++) {
+          grid[rz] = [];
+          for (let cx = 0; cx < cols; cx++) {
+            let px = startX + cx * spacing;
+            let py = fixedY;
+            let pz = startZ + rz * spacing;
+            clothPoints.push({
+              x: px, y: py, z: pz,
+              oldx: px, oldy: py, oldz: pz,
+              pinned: false,
+              userDragged: false, // Flag for dragging
+              nx: 0, ny: 1, nz: 0 // Normal vector
+            });
+            grid[rz][cx] = clothPoints.length - 1;
+          }
+        }
+      }
+
+      function createSubPointsAndConstraints() {
+        horizontal = [];
+        for (let y = 0; y < rows; y++) {
+          horizontal[y] = [];
+          for (let x = 0; x < cols - 1; x++) {
+            let idxA = grid[y][x];
+            let idxB = grid[y][x+1];
+            let A = clothPoints[idxA];
+            let B = clothPoints[idxB];
+            let mx = (A.x + B.x) * 0.5;
+            let my = (A.y + B.y) * 0.5;
+            let mz = (A.z + B.z) * 0.5;
+            clothPoints.push({
+              x: mx, y: my, z: mz,
+              oldx: mx, oldy: my, oldz: mz,
+              pinned: false,
+              userDragged: false,
+              nx: 0, ny: 1, nz: 0
+            });
+            horizontal[y][x] = clothPoints.length - 1;
+          }
+        }
+        vertical = [];
+        for (let y = 0; y < rows - 1; y++) {
+          vertical[y] = [];
+          for (let x = 0; x < cols; x++) {
+            let idxA = grid[y][x];
+            let idxB = grid[y+1][x];
+            let A = clothPoints[idxA];
+            let B = clothPoints[idxB];
+            let mx = (A.x + B.x) * 0.5;
+            let my = (A.y + B.y) * 0.5;
+            let mz = (A.z + B.z) * 0.5;
+            clothPoints.push({
+              x: mx, y: my, z: mz,
+              oldx: mx, oldy: my, oldz: mz,
+              pinned: false,
+              userDragged: false,
+              nx: 0, ny: 1, nz: 0
+            });
+            vertical[y][x] = clothPoints.length - 1;
+          }
+        }
+        centers = [];
+        cellRestArea = [];
+        for (let y = 0; y < rows - 1; y++) {
+          centers[y] = [];
+          cellRestArea[y] = [];
+          for (let x = 0; x < cols - 1; x++) {
+            let idxA = grid[y][x];
+            let idxB = grid[y][x+1];
+            let idxC = grid[y+1][x];
+            let idxD = grid[y+1][x+1];
+            let A = clothPoints[idxA];
+            let B = clothPoints[idxB];
+            let C = clothPoints[idxC];
+            let D = clothPoints[idxD];
+            let mx = (A.x + B.x + C.x + D.x) * 0.25;
+            let my = (A.y + B.y + C.y + D.y) * 0.25;
+            let mz = (A.z + B.z + C.z + D.z) * 0.25;
+            clothPoints.push({
+              x: mx, y: my, z: mz,
+              oldx: mx, oldy: my, oldz: mz,
+              pinned: false,
+              userDragged: false,
+              nx: 0, ny: 1, nz: 0
+            });
+            centers[y][x] = clothPoints.length - 1;
+            let restArea = computeQuadArea(A, B, C, D);
+            cellRestArea[y][x] = restArea;
+          }
+        }
+        createConstraints();
+      }
+
+      function computeQuadArea(A, B, C, D) {
+        let area1 = triArea(A, B, C);
+        let area2 = triArea(B, C, D);
+        return area1 + area2;
+      }
+      
+      function triArea(p1, p2, p3) {
+        let ux = p2.x - p1.x;
+        let uy = p2.y - p1.y;
+        let uz = p2.z - p1.z;
+        let vx = p3.x - p1.x;
+        let vy = p3.y - p1.y;
+        let vz = p3.z - p1.z;
+        let cx = uy * vz - uz * vy;
+        let cy = uz * vx - ux * vz;
+        let cz = ux * vy - uy * vx;
+        return 0.5 * sqrt(cx*cx + cy*cy + cz*cz);
+      }
+
+      function createConstraints() {
+        clothConstraints = [];
+        
+        // Structural
+        for (let y = 0; y < rows; y++) {
+          for (let x = 0; x < cols; x++) {
+            let idx = grid[y][x];
+            if (x < cols - 1) {
+              addConstraint(idx, grid[y][x+1],
+                spacing * (stretchOn ? stretchFactor : BASE_STRETCH),
+                STRUCTURAL
+              );
+            }
+            if (y < rows - 1) {
+              addConstraint(idx, grid[y+1][x],
+                spacing * (stretchOn ? stretchFactor : BASE_STRETCH),
+                STRUCTURAL
+              );
+            }
+          }
+        }
+        // Bending
+        for (let y = 0; y < rows; y++) {
+          for (let x = 0; x < cols - 2; x++) {
+            addConstraint(grid[y][x], grid[y][x+2],
+              spacing * 2 * (bendingOn ? bendingFactor : BASE_BENDING),
+              BENDING
+            );
+          }
+        }
+        for (let y = 0; y < rows - 2; y++) {
+          for (let x = 0; x < cols; x++) {
+            addConstraint(grid[y][x], grid[y+2][x],
+              spacing * 2 * (bendingOn ? bendingFactor : BASE_BENDING),
+              BENDING
+            );
+          }
+        }
+        // Shear
+        for (let y = 0; y < rows - 1; y++) {
+          for (let x = 0; x < cols - 1; x++) {
+            let idxA = grid[y][x];
+            let idxB = grid[y][x+1];
+            let idxC = grid[y+1][x];
+            let idxD = grid[y+1][x+1];
+            addConstraint(idxA, idxD,
+              sqrt(2) * spacing * (shearOn ? shearFactor : BASE_SHEAR),
+              SHEAR
+            );
+            addConstraint(idxB, idxC,
+              sqrt(2) * spacing * (shearOn ? shearFactor : BASE_SHEAR),
+              SHEAR
+            );
+          }
+        }
+        // Subdivide
+        for (let y = 0; y < rows - 1; y++) {
+          for (let x = 0; x < cols - 1; x++) {
+            let A = grid[y][x];
+            let B = grid[y][x+1];
+            let C = grid[y+1][x];
+            let D = grid[y+1][x+1];
+            let E = horizontal[y][x];
+            let F = horizontal[y+1][x];
+            let G = vertical[y][x];
+            let H = vertical[y][x+1];
+            let I = centers[y][x];
+            addTriConstraints(A, E, I);
+            addTriConstraints(A, G, I);
+            addTriConstraints(B, E, I);
+            addTriConstraints(B, H, I);
+            addTriConstraints(C, G, I);
+            addTriConstraints(C, F, I);
+            addTriConstraints(D, H, I);
+            addTriConstraints(D, F, I);
+          }
+        }
+      }
+
+      function addTriConstraints(i1, i2, i3) {
+        let dist1 = distBetween(i1, i2);
+        let dist2 = distBetween(i2, i3);
+        let dist3 = distBetween(i3, i1);
+        addConstraint(i1, i2, dist1, STRUCTURAL);
+        addConstraint(i2, i3, dist2, STRUCTURAL);
+        addConstraint(i3, i1, dist3, STRUCTURAL);
+      }
+
+      function addConstraint(i, j, len, type) {
+        let a = min(i, j);
+        let b = max(i, j);
+        for (let c of clothConstraints) {
+          if (c.p1 === a && c.p2 === b) return;
+        }
+        clothConstraints.push({ p1: a, p2: b, length: len, type });
+      }
+
+      function distBetween(i1, i2) {
+        let p1 = clothPoints[i1];
+        let p2 = clothPoints[i2];
+        let dx = p2.x - p1.x;
+        let dy = p2.y - p1.y;
+        let dz = p2.z - p1.z;
+        return sqrt(dx*dx + dy*dy + dz*dz);
+      }
+
+      function updateCloth() {
+        // Update wind noise offset for Perlin noise effect
+        if (windBufOn) {
+          windNoiseOffset += 0.01;
+        }
+      
+        for (let i = 0; i < clothPoints.length; i++) {
+          let p = clothPoints[i];
+          if (!p.pinned && !p.userDragged) {
+            let vx = (p.x - p.oldx) * (dampingOn ? damping : BASE_DAMPING);
+            let vy = (p.y - p.oldy) * (dampingOn ? damping : BASE_DAMPING);
+            let vz = (p.z - p.oldz) * (dampingOn ? damping : BASE_DAMPING);
+            p.oldx = p.x;
+            p.oldy = p.y;
+            p.oldz = p.z;
+
+            // Apply wind with Perlin noise for natural variation
+            let sinVal = sin(frameCount * 0.01);
+            
+            // Use Perlin noise if wind buffering is enabled
+            let noiseVal = 1.0;
+            if (windBufOn) {
+              // Create different noise values for each axis for more natural movement
+              noiseVal = noise(p.x * 0.01, p.y * 0.01, windNoiseOffset) * 2.0;
+            }
+            
+            let effectiveWindX = windXOn ? windBuffer * windX * sinVal * noiseVal : BASE_WINDX;
+            let effectiveWindY = windYOn ? windBuffer * windY * sinVal * noiseVal : BASE_WINDY;
+            let effectiveWindZ = windZOn ? windBuffer * windZ * sinVal * noiseVal : BASE_WINDZ;
+
+            let effGrav = gravityOn ? gravity : BASE_GRAVITY;
+            let effWeight = weightOn ? weight : BASE_WEIGHT;
+
+            p.x += vx + effectiveWindX;
+            p.y += vy + effGrav * effWeight + effectiveWindY;
+            p.z += vz + effectiveWindZ;
+          }
+        }
+
+        let effIter = iterationsOn ? iterations : BASE_ITERATIONS;
+        for (let i = 0; i < effIter; i++) {
+          for (let c of clothConstraints) {
+            let p1 = clothPoints[c.p1];
+            let p2 = clothPoints[c.p2];
+            
+            // Skip constraints if either point is being dragged by user
+            if (p1.userDragged || p2.userDragged) {
+              continue;
+            }
+            
+            let dx = p2.x - p1.x;
+            let dy = p2.y - p1.y;
+            let dz = p2.z - p1.z;
+            let distVal = sqrt(dx*dx + dy*dy + dz*dz);
+            let diff = (distVal - c.length) / distVal;
+            
+            // Apply buckling effect if enabled (affects how constraints respond to compression)
+            if (bucklingOn && diff < 0) {
+              // Negative diff means compression
+              // Higher buckling factor reduces resistance to compression (more likely to buckle)
+              diff *= (1 - bucklingFactor);
+            }
+            
+            let offsetX = dx * 0.5 * diff;
+            let offsetY = dy * 0.5 * diff;
+            let offsetZ = dz * 0.5 * diff;
+            
+            if (!p1.pinned && !p1.userDragged) {
+              p1.x += offsetX;
+              p1.y += offsetY;
+              p1.z += offsetZ;
+            }
+            
+            if (!p2.pinned && !p2.userDragged) {
+              p2.x -= offsetX;
+              p2.y -= offsetY;
+              p2.z -= offsetZ;
+            }
+          }
+        }
+
+        // Calculate pressure for each vertex (for pressure visualization)
+        calculatePressure();
+
+        doSelfCollision();
+        if (simulationMode === "draped") {
+          if (formMode === "sphere") {
+            doSphereCollision();
+          } else if (formMode === "cylinder") {
+            doCylinderCollision();
+          }
+          doFloorCollision();
+        }
+      }
+      
+      function calculatePressure() {
+        // Reset pressure values
+        for (let i = 0; i < clothPoints.length; i++) {
+          vertexPressure[i] = 0;
+        }
+        
+        // For each quad cell, calculate strain and assign to vertices
+        for (let y = 0; y < rows - 1; y++) {
+          for (let x = 0; x < cols - 1; x++) {
+            let idxA = grid[y][x];
+            let idxB = grid[y][x+1];
+            let idxC = grid[y+1][x];
+            let idxD = grid[y+1][x+1];
+            
+            let A = clothPoints[idxA];
+            let B = clothPoints[idxB];
+            let C = clothPoints[idxC];
+            let D = clothPoints[idxD];
+            
+            // Calculate current area
+            let currArea = computeQuadArea(A, B, C, D);
+            
+            // Get rest area
+            let restArea = cellRestArea[y][x];
+            
+            // Calculate pressure (compression/tension)
+            let areaDiff = currArea - restArea;
+            let pressureVal = areaDiff / restArea;
+            
+            // Distribute pressure to vertices
+            vertexPressure[idxA] += pressureVal;
+            vertexPressure[idxB] += pressureVal;
+            vertexPressure[idxC] += pressureVal;
+            vertexPressure[idxD] += pressureVal;
+          }
+        }
+        
+        // Normalize pressure values
+        for (let i = 0; i < grid.length; i++) {
+          for (let j = 0; j < grid[i].length; j++) {
+            let idx = grid[i][j];
+            // Count number of quads this vertex belongs to
+            let quadCount = 0;
+            if (i > 0 && j > 0) quadCount++;
+            if (i > 0 && j < cols - 1) quadCount++;
+            if (i < rows - 1 && j > 0) quadCount++;
+            if (i < rows - 1 && j < cols - 1) quadCount++;
+            
+            if (quadCount > 0) {
+              vertexPressure[idx] /= quadCount;
+            }
+          }
+        }
+      }
+
+      function doSelfCollision() {
+        let threshold = spacing * 0.5;
+        for (let i = 0; i < clothPoints.length; i++) {
+          for (let j = i + 1; j < clothPoints.length; j++) {
+            let p1 = clothPoints[i];
+            let p2 = clothPoints[j];
+            // Skip dragged points
+            if (p1.userDragged || p2.userDragged) continue;
+            
+            let dx = p2.x - p1.x;
+            let dy = p2.y - p1.y;
+            let dz = p2.z - p1.z;
+            let d = sqrt(dx*dx + dy*dy + dz*dz);
+            if (d < threshold && d > 0) {
+              let overlap = threshold - d;
+              let angle = atan2(dy, dx);
+              if (!p1.pinned && !p2.pinned) {
+                p1.x -= cos(angle)*overlap*0.5;
+                p1.y -= sin(angle)*overlap*0.5;
+                p2.x += cos(angle)*overlap*0.5;
+                p2.y += sin(angle)*overlap*0.5;
+              } else if (!p1.pinned && p2.pinned) {
+                p1.x -= cos(angle)*overlap;
+                p1.y -= sin(angle)*overlap;
+              } else if (p1.pinned && !p2.pinned) {
+                p2.x += cos(angle)*overlap;
+                p2.y += sin(angle)*overlap;
+              }
+            }
+          }
+        }
+      }
+
+      function doSphereCollision() {
+        // Use friction coefficient if enabled
+        const collisionFriction = frictionOn ? frictionCoeff : 0.5;
+        
+        for (let p of clothPoints) {
+          if (!p.pinned && !p.userDragged) {
+            let dx = p.x - sphereCentre.x;
+            let dy = p.y - sphereCentre.y;
+            let dz = p.z - sphereCentre.z;
+            let distVal = sqrt(dx*dx + dy*dy + dz*dz);
+            if (distVal < sphereRadius) {
+              let overlap = sphereRadius - distVal;
+              let nx = dx / distVal;
+              let ny = dy / distVal;
+              let nz = dz / distVal;
+              p.x += nx * overlap;
+              p.y += ny * overlap;
+              p.z += nz * overlap;
+              p.oldx = p.x - collisionFriction * (p.x - p.oldx);
+              p.oldy = p.y - collisionFriction * (p.y - p.oldy);
+              p.oldz = p.z - collisionFriction * (p.z - p.oldz);
+            }
+          }
+        }
+      }
+
+      function doCylinderCollision() {
+        // Use friction coefficient if enabled
+        const collisionFriction = frictionOn ? frictionCoeff : 0.5;
+        
+        for (let p of clothPoints) {
+          if (!p.pinned && !p.userDragged) {
+            if (p.y > cylinderTopY && p.y < cylinderBottomY) {
+              let r = sqrt(p.x*p.x + p.z*p.z);
+              if (r < cylRadius) {
+                let overlap = cylRadius - r;
+                let nx = p.x / r;
+                let nz = p.z / r;
+                p.x += nx * overlap;
+                p.z += nz * overlap;
+                p.oldx = p.x - collisionFriction * (p.x - p.oldx);
+                p.oldz = p.z - collisionFriction * (p.z - p.oldz);
+              }
+            }
+          }
+        }
+      }
+
+      function doFloorCollision() {
+        // Use friction coefficient if enabled
+        const collisionFriction = frictionOn ? frictionCoeff : 0.5;
+        
+        for (let p of clothPoints) {
+          if (!p.pinned && !p.userDragged && p.y > floorY) {
+            p.y = floorY;
+            p.oldy = p.y - collisionFriction * (p.y - p.oldy);
+          }
+        }
+      }
+
+      // IMPROVED DRAG FUNCTIONALITY with area effect and falloff
+      function mousePressed() {
+        if (interactionMode === "drag") {
+          // Clear previous drag state
+          draggedPoints = [];
+          
+          // Find the best point as before (primary drag point)
+          let bestPoint = null;
+          let bestScore = -Infinity;
+          
+          // Convert mouse to normalized device coordinates
+          let ndcX = (mouseX - width/2) / (width/2);
+          let ndcY = (mouseY - height/2) / (height/2) * -1; // Flip Y for WebGL
+          
+          for (let i = 0; i < clothPoints.length; i++) {
+            let p = clothPoints[i];
+            if (p.pinned) continue;
+            
+            let pointVec = createVector(p.x, p.y, p.z);
+            let cameraToPoint = pointVec.mag();
+            let projectedX = p.x / cameraToPoint;
+            let projectedY = p.y / cameraToPoint;
+            let distToRay = dist(projectedX, projectedY, ndcX * 0.5, ndcY * 0.5);
+            let score = -distToRay - cameraToPoint * 0.01;
+            
+            if (score > bestScore) {
+              bestScore = score;
+              bestPoint = i;
+            }
+          }
+          if (bestPoint !== null) {
+            // Set the primary drag point
+            dragPointIndex = bestPoint;
+            clothPoints[dragPointIndex].userDragged = true;
+            
+            // Find all points within the drag radius and calculate their weights
+            let primaryPoint = clothPoints[dragPointIndex];
+            
+            for (let i = 0; i < clothPoints.length; i++) {
+              if (i === dragPointIndex || clothPoints[i].pinned) continue;
+              
+              let p = clothPoints[i];
+              let dx = p.x - primaryPoint.x;
+              let dy = p.y - primaryPoint.y;
+              let dz = p.z - primaryPoint.z;
+              let distance = sqrt(dx*dx + dy*dy + dz*dz);
+              
+              if (distance <= dragRadius) {
+                // Calculate influence weight (1 at center, 0 at radius)
+                let weight = 1 - pow(distance / dragRadius, dragFalloffExponent);
+                
+                // Store original position for reference
+                draggedPoints.push({
+                  index: i,
+                  weight: weight,
+                  origX: p.x,
+                  origY: p.y,
+                  origZ: p.z,
+                  origOldX: p.oldx,
+                  origOldY: p.oldy,
+                  origOldZ: p.oldz
+                });
+              }
+            }
+          }
+        }
+      }
+
+      function mouseDragged() {
+        if (interactionMode === "drag" && dragPointIndex !== null) {
+          let primaryPoint = clothPoints[dragPointIndex];
+          
+          // Store current position before updating
+          let oldX = primaryPoint.x;
+          let oldY = primaryPoint.y;
+          
+          // Scale factor to make dragging more natural
+          let scaleFactor = 1.5;
+          
+          // Calculate primary point's new position
+          let newX = (mouseX - width/2) * scaleFactor;
+          let newY = (mouseY - height/2) * scaleFactor;
+          
+          // Calculate movement delta
+          let deltaX = newX - oldX;
+          let deltaY = newY - oldY;
+          
+          // Update primary point position
+          primaryPoint.x = newX;
+          primaryPoint.y = newY;
+          primaryPoint.oldx = newX;
+          primaryPoint.oldy = newY;
+          
+          // Update all affected points based on their weights
+          for (let dragPoint of draggedPoints) {
+            let p = clothPoints[dragPoint.index];
+            
+            // Apply weighted movement to each affected point
+            p.x += deltaX * dragPoint.weight;
+            p.y += deltaY * dragPoint.weight;
+            
+            // Update old position to prevent velocity
+            p.oldx = p.x;
+            p.oldy = p.y;
+          }
+        }
+      }
+
+      function mouseReleased() {
+        if (dragPointIndex !== null) {
+          // Release primary point
+          clothPoints[dragPointIndex].userDragged = false;
+          
+          // Add a small random velocity for natural movement
+          let p = clothPoints[dragPointIndex];
+          p.oldx = p.x - random(-0.5, 0.5);
+          p.oldy = p.y - random(-0.5, 0.5);
+          p.oldz = p.z - random(-0.5, 0.5);
+          
+          // Add slight random velocity to affected points
+          for (let dragPoint of draggedPoints) {
+            let p = clothPoints[dragPoint.index];
+            // Scale velocity based on weight
+            let velScale = dragPoint.weight * 0.5;
+            p.oldx = p.x - random(-velScale, velScale);
+            p.oldy = p.y - random(-velScale, velScale);
+            p.oldz = p.z - random(-velScale, velScale);
+          }
+          
+          // Reset drag state
+          dragPointIndex = null;
+          draggedPoints = [];
+        }
+      }
+
+      function calcNormals() {
+        // Reset normals
+        for (let p of clothPoints) {
+          p.nx = p.ny = p.nz = 0;
+        }
+        
+        // Calculate face normals and add to vertices
+        for (let y = 0; y < rows - 1; y++) {
+          for (let x = 0; x < cols - 1; x++) {
+            let i1 = grid[y][x];
+            let i2 = grid[y][x+1];
+            let i3 = grid[y+1][x+1];
+            let i4 = grid[y+1][x];
+            
+            let p1 = clothPoints[i1];
+            let p2 = clothPoints[i2];
+            let p3 = clothPoints[i3];
+            let p4 = clothPoints[i4];
+            
+            // Calculate normal for triangle 1 (p1, p2, p3)
+            let ax = p2.x - p1.x, ay = p2.y - p1.y, az = p2.z - p1.z;
+            let bx = p3.x - p1.x, by = p3.y - p1.y, bz = p3.z - p1.z;
+            
+            let nx1 = ay * bz - az * by;
+            let ny1 = az * bx - ax * bz;
+            let nz1 = ax * by - ay * bx;
+            
+            // Calculate normal for triangle 2 (p1, p3, p4)
+            let cx = p3.x - p1.x, cy = p3.y - p1.y, cz = p3.z - p1.z;
+            let dx = p4.x - p1.x, dy = p4.y - p1.y, dz = p4.z - p1.z;
+            
+            let nx2 = cy * dz - cz * dy;
+            let ny2 = cz * dx - cx * dz;
+            let nz2 = cx * dy - cy * dx;
+            
+            // Add normals to vertices
+            p1.nx += nx1 + nx2; p1.ny += ny1 + ny2; p1.nz += nz1 + nz2;
+            p2.nx += nx1; p2.ny += ny1; p2.nz += nz1;
+            p3.nx += nx1 + nx2; p3.ny += ny1 + ny2; p3.nz += nz1 + nz2;
+            p4.nx += nx2; p4.ny += ny2; p4.nz += nz2;
+          }
+        }
+        
+        // Normalize all normals
+        for (let p of clothPoints) {
+          let len = sqrt(p.nx*p.nx + p.ny*p.ny + p.nz*p.nz);
+          if (len > 0.0001) {
+            p.nx /= len;
+            p.ny /= len;
+            p.nz /= len;
+          } else {
+            p.nx = 0;
+            p.ny = 1;
+            p.nz = 0;
+          }
+        }
+      }
+      
+      // Helper function to interpolate between color ranges (for heatmap)
+      function getColorFromScale(value, min, max) {
+        // Normalize value between 0 and 1
+        let normalizedVal = constrain((value - min) / (max - min), 0, 1);
+        
+        // Determine which segment of the color scale to use
+        let numSegments = stressColors.length - 1;
+        let segment = floor(normalizedVal * numSegments);
+        
+        // Ensure we stay within bounds
+        segment = constrain(segment, 0, numSegments - 1);
+        
+        // Calculate how far we are through this segment (0-1)
+        let segmentPos = (normalizedVal * numSegments) - segment;
+        
+        // Get the two colors to interpolate between
+        let color1 = stressColors[segment];
+        let color2 = stressColors[segment + 1];
+        
+        // Interpolate between the two colors
+        let r = lerp(color1[0], color2[0], segmentPos);
+        let g = lerp(color1[1], color2[1], segmentPos);
+        let b = lerp(color1[2], color2[2], segmentPos);
+        
+        return [r, g, b];
+      }
+
+      function drawDragHandle(p) {
+        // Consistent drag visualization across all modes
+        if (p.userDragged) {
+          push();
+          translate(p.x, p.y, p.z);
+          
+          // Draw the mesh sphere with reduced size (1/3 of original)
+          let sphereSize = dragHandleSize / 3;
+          
+          // Red mesh sphere visualization
+          noFill();
+          stroke(255, 0, 0);
+          strokeWeight(1);
+          sphere(sphereSize);
+          
+          // Small solid center for better visibility
+          noStroke();
+          fill(255, 0, 0);
+          sphere(sphereSize * 0.5);
+          
+          pop();
+          
+          // Visualize drag influence area
+          push();
+          noFill();
+          stroke(255, 0, 0, 50);
+          strokeWeight(0.5);
+          translate(p.x, p.y, p.z);
+          sphere(dragRadius);
+          pop();
+        }
+      }
+
+      function draw() {
+        background(30);
+
+        if (doResetOrientation) {
+          camera(0, 0, (height/2) / tan(PI*30/180),
+                 0, 0, 0,
+                 0, 1, 0);
+          doResetOrientation = false;
+        }
+
+        if (interactionMode === "rotate") {
+          orbitControl();
+        }
+
+        if (simulationRunning) {
+          updateCloth();
+        }
+        
+        calcNormals();
+
+        // If draped mode, draw the chosen form + invisible floor
+        if (simulationMode === "draped") {
+          noStroke();
+          fill("#222"); // dark grey
+          if (formMode === "sphere") {
+            push();
+            translate(sphereCentre.x, sphereCentre.y, sphereCentre.z);
+            sphere(sphereRadius);
+            pop();
+          } else {
+            push();
+            let midY = (cylinderTopY + cylinderBottomY)/2;
+            translate(0, midY, 0);
+            cylinder(cylRadius, cylHeight);
+            pop();
+          }
+          // Draw invisible floor (wireframe)
+          push();
+          translate(0, floorY, 0);
+          noFill();
+          plane(1000, 1000);
+          pop();
+        }
+
+        // VISUALIZATION MODES
+        if (shadingMode === "off") {
+          // "off" mode - wireframe with points
+          stroke(255);
+          strokeWeight(1);
+          noFill();
+          for (let c of clothConstraints) {
+            let p1 = clothPoints[c.p1];
+            let p2 = clothPoints[c.p2];
+            line(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+          }
+          
+          // Draw the cloth points with appropriate coloring
+          noStroke();
+          for (let i = 0; i < clothPoints.length; i++) {
+            let p = clothPoints[i];
+            push();
+            translate(p.x, p.y, p.z);
+            
+            if (p.pinned) {
+              // Pinned point (gray)
+              fill(180);
+              sphere(3);
+            } else if (interactionMode === "drag" && !p.pinned) {
+              // Regular points in drag mode
+              fill(255);
+              sphere(2);
+            } else {
+              // Regular points
+              fill(255);
+              sphere(2);
+            }
+            pop();
+          }
+          
+          // Draw the dragged point with consistent visualization
+          if (dragPointIndex !== null) {
+            drawDragHandle(clothPoints[dragPointIndex]);
+          }
+
+        } else if (shadingMode === "cloth" || shadingMode === "overlaid") {
+          // Cloth shading - height-based coloring
+          let minY = Infinity, maxY = -Infinity;
+          for (let y = 0; y < rows; y++) {
+            for (let x = 0; x < cols; x++) {
+              let pt = clothPoints[grid[y][x]];
+              if (pt.y < minY) minY = pt.y;
+              if (pt.y > maxY) maxY = pt.y;
+            }
+          }
+          
+          noStroke();
+          for (let y = 0; y < rows - 1; y++) {
+            for (let x = 0; x < cols - 1; x++) {
+              let A = clothPoints[grid[y][x]];
+              let B = clothPoints[grid[y][x+1]];
+              let C = clothPoints[grid[y+1][x+1]];
+              let D = clothPoints[grid[y+1][x]];
+              let avgY = (A.y+B.y+C.y+D.y)*0.25;
+              let bright = map(avgY, minY, maxY, 220, 80);
+              fill(bright);
+              beginShape();
+              vertex(A.x, A.y, A.z);
+              vertex(B.x, B.y, B.z);
+              vertex(C.x, C.y, C.z);
+              vertex(D.x, D.y, D.z);
+              endShape(CLOSE);
+            }
+          }
+          
+          if (shadingMode === "overlaid") {
+            stroke(255);
+            strokeWeight(1);
+            noFill();
+            for (let c of clothConstraints) {
+              let p1 = clothPoints[c.p1];
+              let p2 = clothPoints[c.p2];
+              line(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+            }
+            
+            fill(255);
+            noStroke();
+            for (let i = 0; i < clothPoints.length; i++) {
+              let p = clothPoints[i];
+              if (!p.userDragged) {
+                push();
+                translate(p.x, p.y, p.z);
+                sphere(2);
+                pop();
+              }
+            }
+          }
+          
+          // Draw the dragged point with consistent visualization
+          if (dragPointIndex !== null) {
+            drawDragHandle(clothPoints[dragPointIndex]);
+          }
+
+        } else if (shadingMode === "stress") {
+          // Heat-map only (no overlay lines/nodes)
+          noStroke();
+          let sensitivityFactor = 1.0;
+          for (let y = 0; y < rows - 1; y++) {
+            for (let x = 0; x < cols - 1; x++) {
+              let idxA = grid[y][x];
+              let idxB = grid[y][x+1];
+              let idxC = grid[y+1][x];
+              let idxD = grid[y+1][x+1];
+              let A = clothPoints[idxA];
+              let B = clothPoints[idxB];
+              let C = clothPoints[idxC];
+              let D = clothPoints[idxD];
+              let currArea = computeQuadArea(A, B, C, D);
+              let restArea = cellRestArea[y][x];
+              let diff = currArea - restArea;
+              let maxDelta = restArea * 1.0 * sensitivityFactor;
+              let val = constrain(diff, -maxDelta, maxDelta);
+              
+              // Use Clo3D style heat map
+              let colorVal = getColorFromScale(val, -maxDelta, maxDelta);
+              fill(colorVal[0], colorVal[1], colorVal[2]);
+              
+              beginShape();
+              vertex(A.x, A.y, A.z);
+              vertex(B.x, B.y, B.z);
+              vertex(C.x, C.y, C.z);
+              vertex(D.x, D.y, D.z);
+              endShape(CLOSE);
+            }
+          }
+          
+          // Draw the dragged point with consistent visualization
+          if (dragPointIndex !== null) {
+            drawDragHandle(clothPoints[dragPointIndex]);
+          }
+          
+        } else if (shadingMode === "strain") {
+          // Strain visualization - based on length changes in constraints
+          noStroke();
+          
+          // First compute strain for each constraint
+          let strainValues = {};
+          let maxStrain = 0;
+          
+          for (let c of clothConstraints) {
+            if (c.type !== STRUCTURAL) continue; // Only show strain in structural constraints
+            
+            let p1 = clothPoints[c.p1];
+            let p2 = clothPoints[c.p2];
+            
+            // Calculate current length
+            let dx = p2.x - p1.x;
+            let dy = p2.y - p1.y;
+            let dz = p2.z - p1.z;
+            let currLen = sqrt(dx*dx + dy*dy + dz*dz);
+            
+            // Calculate strain (normalized length change)
+            let strain = abs((currLen - c.length) / c.length);
+            strainValues[`${c.p1}-${c.p2}`] = strain;
+            
+            if (strain > maxStrain) maxStrain = strain;
+          }
+          
+          // Cap maximum strain for visualization
+          maxStrain = min(maxStrain, 0.5);
+          
+          // Draw cloth with strain coloring
+          for (let y = 0; y < rows - 1; y++) {
+            for (let x = 0; x < cols - 1; x++) {
+              let idxA = grid[y][x];
+              let idxB = grid[y][x+1];
+              let idxC = grid[y+1][x];
+              let idxD = grid[y+1][x+1];
+              
+              // Get average strain for this quad
+              let key1 = `${min(idxA, idxB)}-${max(idxA, idxB)}`;
+              let key2 = `${min(idxB, idxD)}-${max(idxB, idxD)}`;
+              let key3 = `${min(idxD, idxC)}-${max(idxD, idxC)}`;
+              let key4 = `${min(idxC, idxA)}-${max(idxC, idxA)}`;
+              
+              let avgStrain = (
+                (strainValues[key1] || 0) + 
+                (strainValues[key2] || 0) + 
+                (strainValues[key3] || 0) + 
+                (strainValues[key4] || 0)
+              ) / 4;
+              
+              // Use Clo3D style heat map
+              let colorVal = getColorFromScale(avgStrain, 0, maxStrain);
+              fill(colorVal[0], colorVal[1], colorVal[2]);
+              
+              let A = clothPoints[idxA];
+              let B = clothPoints[idxB];
+              let C = clothPoints[idxC];
+              let D = clothPoints[idxD];
+              
+              beginShape();
+              vertex(A.x, A.y, A.z);
+              vertex(B.x, B.y, B.z);
+              vertex(D.x, D.y, D.z);
+              vertex(C.x, C.y, C.z);
+              endShape(CLOSE);
+            }
+          }
+          
+          // Draw the dragged point with consistent visualization
+          if (dragPointIndex !== null) {
+            drawDragHandle(clothPoints[dragPointIndex]);
+          }
+          
+        } else if (shadingMode === "pressure") {
+          // Pressure visualization - based on vertex pressure values
+          noStroke();
+          
+          // Find pressure range
+          let minPressure = Infinity, maxPressure = -Infinity;
+          for (let i = 0; i < vertexPressure.length; i++) {
+            if (vertexPressure[i] < minPressure) minPressure = vertexPressure[i];
+            if (vertexPressure[i] > maxPressure) maxPressure = vertexPressure[i];
+          }
+          
+          // Cap pressure range for visualization
+          maxPressure = min(maxPressure, 0.5);
+          minPressure = max(minPressure, -0.5);
+          
+          // Draw pressure colored quads
+          for (let y = 0; y < rows - 1; y++) {
+            for (let x = 0; x < cols - 1; x++) {
+              let idxA = grid[y][x];
+              let idxB = grid[y][x+1];
+              let idxC = grid[y+1][x];
+              let idxD = grid[y+1][x+1];
+              
+              let pressureA = vertexPressure[idxA];
+              let pressureB = vertexPressure[idxB];
+              let pressureC = vertexPressure[idxC];
+              let pressureD = vertexPressure[idxD];
+              
+              let avgPressure = (pressureA + pressureB + pressureC + pressureD) / 4;
+              
+              // Use Clo3D style heat map (blue-green-yellow-red)
+              let colorVal = getColorFromScale(avgPressure, minPressure, maxPressure);
+              fill(colorVal[0], colorVal[1], colorVal[2]);
+              
+              let A = clothPoints[idxA];
+              let B = clothPoints[idxB];
+              let C = clothPoints[idxC];
+              let D = clothPoints[idxD];
+              
+              beginShape();
+              vertex(A.x, A.y, A.z);
+              vertex(B.x, B.y, B.z);
+              vertex(D.x, D.y, D.z);
+              vertex(C.x, C.y, C.z);
+              endShape(CLOSE);
+            }
+          }
+          
+          // Draw the dragged point with consistent visualization
+          if (dragPointIndex !== null) {
+            drawDragHandle(clothPoints[dragPointIndex]);
+          }
+
+        } else if (shadingMode === "structure") {
+          // Colour-coded lines by constraint type
+          noFill();
+          strokeWeight(2);
+          for (let c of clothConstraints) {
+            let p1 = clothPoints[c.p1];
+            let p2 = clothPoints[c.p2];
+            if (c.type === STRUCTURAL) {
+              stroke(0, 255, 0);
+            } else if (c.type === SHEAR) {
+              stroke(255, 255, 0);
+            } else if (c.type === BENDING) {
+              stroke(0, 0, 255);
+            } else {
+              stroke(255);
+            }
+            line(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+          }
+          
+          // Draw nodes
+          for (let i = 0; i < clothPoints.length; i++) {
+            let p = clothPoints[i];
+            if (!p.userDragged) {
+              push();
+              translate(p.x, p.y, p.z);
+              fill(255, 0, 0);
+              noStroke();
+              sphere(2);
+              pop();
+            }
+          }
+          
+          // Draw the dragged point with consistent visualization
+          if (dragPointIndex !== null) {
+            drawDragHandle(clothPoints[dragPointIndex]);
+          }
+        }
+      }
+
+      function windowResized() {
+        resizeCanvas(windowWidth, windowHeight);
+      }
+      
+      // UI Interaction for Progressive Disclosure
+      document.addEventListener('DOMContentLoaded', function() {
+        // Expand the UI panel by default
+        document.getElementById('uiPanel').classList.add('expanded');
+        
+        // Expand the first two sections by default (Simulation Mode and Interaction)
+        document.querySelectorAll('.control-section').forEach((section, index) => {
+          if (index < 2) {
+            section.classList.add('expanded');
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
