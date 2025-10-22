@@ -182,9 +182,9 @@
 
   <script>
     // ===== FABRIC SIMULATION PARAMETERS =====
-    const cols = 30;
-    const rows = 30;
-    const spacing = 25;
+    let cols = 30;
+    let rows = 30;
+    let spacing = 25;
 
     // Physics parameters
     const BASE_DAMPING = 0.98;
@@ -230,6 +230,11 @@
     // Camera control
     let camX = 0, camY = 0, camZ = 800;
     let rotX = 0, rotY = 0;
+    let userRotX = 0, userRotY = 0; // User-controlled rotation
+    let targetRotX = 0, targetRotY = 0;
+
+    // Middle mouse button rotation
+    let isMiddleMouseDown = false;
 
     // ===== P5.JS SETUP =====
     function setup() {
@@ -250,6 +255,10 @@
       horizontal = [];
       vertical = [];
       centers = [];
+
+      // Calculate spacing to stretch fabric across screen
+      // Add some extra space so fabric extends beyond viewport edges
+      spacing = max(windowWidth, windowHeight) / (cols - 1) * 1.2;
 
       // Calculate cloth dimensions to fill screen
       let clothWidth = (cols - 1) * spacing;
@@ -676,10 +685,14 @@
     function draw() {
       background(15, 20, 30);
 
+      // Smoothly interpolate user rotations
+      userRotX = lerp(userRotX, targetRotX, 0.1);
+      userRotY = lerp(userRotY, targetRotY, 0.1);
+
       // Set camera with slight rotation for better view
       camera(camX, camY, camZ, 0, 0, 0, 0, 1, 0);
-      rotateX(rotX);
-      rotateY(rotY);
+      rotateX(rotX + userRotX);
+      rotateY(rotY + userRotY);
 
       updateCloth();
       drawCloth();
@@ -687,6 +700,7 @@
 
     function windowResized() {
       resizeCanvas(windowWidth, windowHeight);
+      setupCloth(); // Recalculate fabric size for new viewport
     }
 
     // ===== SCROLL EVENT HANDLING =====
@@ -733,6 +747,59 @@
 
     // Initialize scroll position
     lastScrollY = window.pageYOffset || document.documentElement.scrollTop;
+
+    // ===== MIDDLE MOUSE BUTTON ROTATION =====
+    // Helper function to constrain values
+    function constrainValue(value, min, max) {
+      return Math.min(Math.max(value, min), max);
+    }
+
+    // Detect middle mouse button press
+    document.addEventListener('mousedown', function(e) {
+      if (e.button === 1) { // Middle mouse button
+        isMiddleMouseDown = true;
+        e.preventDefault();
+      }
+    });
+
+    // Detect middle mouse button release
+    document.addEventListener('mouseup', function(e) {
+      if (e.button === 1) {
+        isMiddleMouseDown = false;
+        e.preventDefault();
+      }
+    });
+
+    // Handle mouse wheel for rotation when middle button is held
+    document.addEventListener('wheel', function(e) {
+      if (isMiddleMouseDown) {
+        e.preventDefault();
+
+        // Update rotation based on wheel delta
+        // Vertical scrolling rotates around X axis (pitch)
+        // Horizontal scrolling rotates around Y axis (yaw)
+        targetRotX += e.deltaY * 0.001;
+        targetRotY += e.deltaX * 0.001;
+
+        // Clamp rotations to reasonable values
+        targetRotX = constrainValue(targetRotX, -Math.PI / 2, Math.PI / 2);
+        targetRotY = targetRotY % (Math.PI * 2);
+      }
+    }, { passive: false });
+
+    // Prevent context menu on middle mouse button
+    document.addEventListener('contextmenu', function(e) {
+      if (isMiddleMouseDown) {
+        e.preventDefault();
+      }
+    });
+
+    // Update instructions in the first content section
+    document.querySelector('.content-section p:nth-of-type(2)').innerHTML = `
+      <strong>Scroll down</strong> to create wind effects that buffet the fabric.
+      <strong>Move your cursor</strong> to influence the direction of the wind across the screen.
+      <strong>Hold middle mouse button and scroll</strong> to rotate the fabric and view it from different angles.
+    `;
   </script>
 </body>
 </html>
