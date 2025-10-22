@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fabric Background Website</title>
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.5.0/lib/p5.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow-x: hidden;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    /* Canvas as fixed background */
+    #canvasContainer {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+
+    /* Scrollable content container */
+    #content {
+      position: relative;
+      z-index: 1;
+      min-height: 300vh; /* Make it scrollable */
+    }
+
+    /* Content sections */
+    .content-section {
+      margin: 20vh auto;
+      max-width: 800px;
+      padding: 60px;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    .content-section h1 {
+      font-size: 3em;
+      margin-bottom: 20px;
+      color: #222;
+    }
+
+    .content-section h2 {
+      font-size: 2em;
+      margin-bottom: 15px;
+      color: #444;
+    }
+
+    .content-section p {
+      font-size: 1.2em;
+      line-height: 1.8;
+      color: #666;
+      margin-bottom: 15px;
+    }
+
+    /* Scroll indicator */
+    .scroll-indicator {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2;
+      color: white;
+      font-size: 14px;
+      text-align: center;
+      animation: bounce 2s infinite;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+
+    @keyframes bounce {
+      0%, 20%, 50%, 80%, 100% {
+        transform: translateX(-50%) translateY(0);
+      }
+      40% {
+        transform: translateX(-50%) translateY(-10px);
+      }
+      60% {
+        transform: translateX(-50%) translateY(-5px);
+      }
+    }
+
+    .scroll-indicator svg {
+      width: 24px;
+      height: 24px;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Fixed fabric background canvas -->
+  <div id="canvasContainer"></div>
+
+  <!-- Scrollable content -->
+  <div id="content">
+    <div class="content-section" style="margin-top: 10vh;">
+      <h1>Interactive Fabric Background</h1>
+      <p>
+        This website features a dynamic fabric simulation that responds to your interactions.
+        The fabric hangs from the four corners of your screen, affected by gravity and wind forces.
+      </p>
+      <p>
+        <strong>Scroll down</strong> to create wind effects that buffet the fabric.
+        <strong>Move your cursor</strong> to influence the direction of the wind across the screen.
+      </p>
+    </div>
+
+    <div class="content-section">
+      <h2>How It Works</h2>
+      <p>
+        The fabric is simulated using a physics engine with Verlet integration,
+        calculating realistic cloth movement through constraint-based dynamics.
+      </p>
+      <p>
+        As you scroll, the velocity and direction of your scrolling generates
+        wind forces that push and pull on the fabric, creating natural, flowing motion.
+      </p>
+      <p>
+        Your cursor position influences the directional wind - move it left or right,
+        up or down, and watch the fabric respond to your movements.
+      </p>
+    </div>
+
+    <div class="content-section">
+      <h2>Geometric Textile</h2>
+      <p>
+        The overlaid texture visualization shows both the smooth surface of the fabric
+        and its underlying structural geometry, creating a beautiful interplay between
+        form and function.
+      </p>
+      <p>
+        The fabric's behavior is influenced by properties like stretch, shear, bending,
+        and weight - all working together to create realistic cloth simulation.
+      </p>
+    </div>
+
+    <div class="content-section">
+      <h2>Keep Scrolling</h2>
+      <p>
+        Notice how the fabric continues to move and settle even after you stop scrolling.
+        The physics simulation includes damping and natural oscillation,
+        making the motion feel organic and lifelike.
+      </p>
+      <p>
+        Try scrolling quickly, then slowly. Move your mouse around while scrolling.
+        Each interaction creates a unique pattern of movement in the fabric.
+      </p>
+    </div>
+
+    <div class="content-section" style="margin-bottom: 20vh;">
+      <h2>End of Demo</h2>
+      <p>
+        This demonstrates how the fabric simulation can be used as an engaging
+        background for any website content.
+      </p>
+      <p>
+        The combination of scroll-based and cursor-based interactions creates
+        a rich, immersive experience that responds naturally to user input.
+      </p>
+    </div>
+  </div>
+
+  <!-- Scroll indicator (only visible at top) -->
+  <div class="scroll-indicator" id="scrollIndicator">
+    Scroll to interact
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 5v14M19 12l-7 7-7-7"/>
+    </svg>
+  </div>
+
+  <script>
+    // ===== FABRIC SIMULATION PARAMETERS =====
+    const cols = 30;
+    const rows = 30;
+    const spacing = 25;
+
+    // Physics parameters
+    const BASE_DAMPING = 0.98;
+    const BASE_ITERATIONS = 5;
+    const BASE_GRAVITY = 0.15;
+    const BASE_STRETCH = 1.0;
+    const BASE_SHEAR = 1.0;
+    const BASE_BENDING = 1.0;
+    const BASE_WEIGHT = 1.0;
+
+    // Constraint types
+    const STRUCTURAL = "structural";
+    const SHEAR = "shear";
+    const BENDING = "bending";
+
+    // Fabric data structures
+    let clothPoints = [];
+    let clothConstraints = [];
+    let grid = [];
+    let horizontal = [];
+    let vertical = [];
+    let centers = [];
+
+    // Wind control variables
+    let windX = 0;
+    let windY = 0;
+    let windZ = 0;
+    let windBuffer = 0;
+    let targetWindX = 0;
+    let targetWindY = 0;
+    let targetWindZ = 0;
+    let targetWindBuffer = 0;
+    let windNoiseOffset = 0;
+
+    // Scroll tracking
+    let lastScrollY = 0;
+    let scrollVelocity = 0;
+
+    // Mouse tracking for wind direction
+    let mouseXNorm = 0.5;
+    let mouseYNorm = 0.5;
+
+    // Camera control
+    let camX = 0, camY = 0, camZ = 800;
+    let rotX = 0, rotY = 0;
+
+    // ===== P5.JS SETUP =====
+    function setup() {
+      let cnv = createCanvas(windowWidth, windowHeight, WEBGL);
+      cnv.parent("canvasContainer");
+      cnv.style("display", "block");
+
+      setupCloth();
+
+      // Set initial camera position
+      camera(camX, camY, camZ, 0, 0, 0, 0, 1, 0);
+    }
+
+    function setupCloth() {
+      clothPoints = [];
+      clothConstraints = [];
+      grid = [];
+      horizontal = [];
+      vertical = [];
+      centers = [];
+
+      // Calculate cloth dimensions to fill screen
+      let clothWidth = (cols - 1) * spacing;
+      let clothHeight = (rows - 1) * spacing;
+
+      // Position cloth to fill viewport
+      let startX = -clothWidth / 2;
+      let startY = -clothHeight / 2;
+      let startZ = 0;
+
+      // Create grid of points
+      for (let y = 0; y < rows; y++) {
+        grid[y] = [];
+        for (let x = 0; x < cols; x++) {
+          let px = startX + x * spacing;
+          let py = startY + y * spacing;
+          let pz = startZ;
+
+          let point = {
+            x: px, y: py, z: pz,
+            oldx: px, oldy: py, oldz: pz,
+            nx: 0, ny: 0, nz: 1,
+            pinned: false
+          };
+
+          // Pin the four corners
+          if ((x === 0 && y === 0) ||
+              (x === cols - 1 && y === 0) ||
+              (x === 0 && y === rows - 1) ||
+              (x === cols - 1 && y === rows - 1)) {
+            point.pinned = true;
+          }
+
+          clothPoints.push(point);
+          grid[y][x] = clothPoints.length - 1;
+        }
+      }
+
+      // Create subdivided mesh points
+      for (let y = 0; y < rows - 1; y++) {
+        horizontal[y] = [];
+        for (let x = 0; x < cols - 1; x++) {
+          let idx1 = grid[y][x];
+          let idx2 = grid[y][x + 1];
+          let p1 = clothPoints[idx1];
+          let p2 = clothPoints[idx2];
+          let midPoint = {
+            x: (p1.x + p2.x) / 2,
+            y: (p1.y + p2.y) / 2,
+            z: (p1.z + p2.z) / 2,
+            oldx: (p1.x + p2.x) / 2,
+            oldy: (p1.y + p2.y) / 2,
+            oldz: (p1.z + p2.z) / 2,
+            nx: 0, ny: 0, nz: 1,
+            pinned: false
+          };
+          clothPoints.push(midPoint);
+          horizontal[y][x] = clothPoints.length - 1;
+        }
+      }
+
+      for (let y = 0; y < rows - 1; y++) {
+        vertical[y] = [];
+        for (let x = 0; x < cols; x++) {
+          let idx1 = grid[y][x];
+          let idx2 = grid[y + 1][x];
+          let p1 = clothPoints[idx1];
+          let p2 = clothPoints[idx2];
+          let midPoint = {
+            x: (p1.x + p2.x) / 2,
+            y: (p1.y + p2.y) / 2,
+            z: (p1.z + p2.z) / 2,
+            oldx: (p1.x + p2.x) / 2,
+            oldy: (p1.y + p2.y) / 2,
+            oldz: (p1.z + p2.z) / 2,
+            nx: 0, ny: 0, nz: 1,
+            pinned: false
+          };
+          clothPoints.push(midPoint);
+          vertical[y][x] = clothPoints.length - 1;
+        }
+      }
+
+      for (let y = 0; y < rows - 1; y++) {
+        centers[y] = [];
+        for (let x = 0; x < cols - 1; x++) {
+          let idxA = grid[y][x];
+          let idxB = grid[y][x + 1];
+          let idxC = grid[y + 1][x];
+          let idxD = grid[y + 1][x + 1];
+          let A = clothPoints[idxA];
+          let B = clothPoints[idxB];
+          let C = clothPoints[idxC];
+          let D = clothPoints[idxD];
+          let centerPoint = {
+            x: (A.x + B.x + C.x + D.x) / 4,
+            y: (A.y + B.y + C.y + D.y) / 4,
+            z: (A.z + B.z + C.z + D.z) / 4,
+            oldx: (A.x + B.x + C.x + D.x) / 4,
+            oldy: (A.y + B.y + C.y + D.y) / 4,
+            oldz: (A.z + B.z + C.z + D.z) / 4,
+            nx: 0, ny: 0, nz: 1,
+            pinned: false
+          };
+          clothPoints.push(centerPoint);
+          centers[y][x] = clothPoints.length - 1;
+        }
+      }
+
+      createConstraints();
+    }
+
+    function createConstraints() {
+      clothConstraints = [];
+
+      // Structural constraints (horizontal and vertical)
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols - 1; x++) {
+          let p1 = grid[y][x];
+          let p2 = grid[y][x + 1];
+          let dist = spacing * BASE_STRETCH;
+          clothConstraints.push({ p1, p2, length: dist, type: STRUCTURAL });
+        }
+      }
+
+      for (let y = 0; y < rows - 1; y++) {
+        for (let x = 0; x < cols; x++) {
+          let p1 = grid[y][x];
+          let p2 = grid[y + 1][x];
+          let dist = spacing * BASE_STRETCH;
+          clothConstraints.push({ p1, p2, length: dist, type: STRUCTURAL });
+        }
+      }
+
+      // Shear constraints (diagonals)
+      for (let y = 0; y < rows - 1; y++) {
+        for (let x = 0; x < cols - 1; x++) {
+          let p1 = grid[y][x];
+          let p2 = grid[y + 1][x + 1];
+          let dist = spacing * sqrt(2) * BASE_SHEAR;
+          clothConstraints.push({ p1, p2, length: dist, type: SHEAR });
+
+          let p3 = grid[y][x + 1];
+          let p4 = grid[y + 1][x];
+          clothConstraints.push({ p1: p3, p2: p4, length: dist, type: SHEAR });
+        }
+      }
+
+      // Bending constraints (skip-1 connections)
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols - 2; x++) {
+          let p1 = grid[y][x];
+          let p2 = grid[y][x + 2];
+          let dist = spacing * 2 * BASE_BENDING;
+          clothConstraints.push({ p1, p2, length: dist, type: BENDING });
+        }
+      }
+
+      for (let y = 0; y < rows - 2; y++) {
+        for (let x = 0; x < cols; x++) {
+          let p1 = grid[y][x];
+          let p2 = grid[y + 2][x];
+          let dist = spacing * 2 * BASE_BENDING;
+          clothConstraints.push({ p1, p2, length: dist, type: BENDING });
+        }
+      }
+
+      // Triangle constraints for subdivided mesh
+      addTriConstraints();
+    }
+
+    function addTriConstraints() {
+      for (let y = 0; y < rows - 1; y++) {
+        for (let x = 0; x < cols - 1; x++) {
+          let idxA = grid[y][x];
+          let idxB = grid[y][x + 1];
+          let idxC = grid[y + 1][x];
+          let idxD = grid[y + 1][x + 1];
+          let idxH = horizontal[y][x];
+          let idxV1 = vertical[y][x];
+          let idxV2 = vertical[y][x + 1];
+          let idxCtr = centers[y][x];
+
+          let A = clothPoints[idxA];
+          let B = clothPoints[idxB];
+          let C = clothPoints[idxC];
+          let D = clothPoints[idxD];
+          let H = clothPoints[idxH];
+          let V1 = clothPoints[idxV1];
+          let V2 = clothPoints[idxV2];
+          let Ctr = clothPoints[idxCtr];
+
+          let halfSp = spacing / 2;
+
+          clothConstraints.push({ p1: idxA, p2: idxH, length: halfSp, type: STRUCTURAL });
+          clothConstraints.push({ p1: idxB, p2: idxH, length: halfSp, type: STRUCTURAL });
+          clothConstraints.push({ p1: idxA, p2: idxV1, length: halfSp, type: STRUCTURAL });
+          clothConstraints.push({ p1: idxC, p2: idxV1, length: halfSp, type: STRUCTURAL });
+          clothConstraints.push({ p1: idxB, p2: idxV2, length: halfSp, type: STRUCTURAL });
+          clothConstraints.push({ p1: idxD, p2: idxV2, length: halfSp, type: STRUCTURAL });
+
+          clothConstraints.push({ p1: idxA, p2: idxCtr, length: halfSp * sqrt(2), type: STRUCTURAL });
+          clothConstraints.push({ p1: idxB, p2: idxCtr, length: halfSp * sqrt(2), type: STRUCTURAL });
+          clothConstraints.push({ p1: idxC, p2: idxCtr, length: halfSp * sqrt(2), type: STRUCTURAL });
+          clothConstraints.push({ p1: idxD, p2: idxCtr, length: halfSp * sqrt(2), type: STRUCTURAL });
+          clothConstraints.push({ p1: idxH, p2: idxCtr, length: halfSp, type: STRUCTURAL });
+          clothConstraints.push({ p1: idxV1, p2: idxCtr, length: halfSp, type: STRUCTURAL });
+          clothConstraints.push({ p1: idxV2, p2: idxCtr, length: halfSp, type: STRUCTURAL });
+        }
+      }
+    }
+
+    function updateCloth() {
+      // Smoothly interpolate wind values
+      windX = lerp(windX, targetWindX, 0.1);
+      windY = lerp(windY, targetWindY, 0.1);
+      windZ = lerp(windZ, targetWindZ, 0.1);
+      windBuffer = lerp(windBuffer, targetWindBuffer, 0.1);
+
+      windNoiseOffset += 0.01;
+
+      // Update all points
+      for (let i = 0; i < clothPoints.length; i++) {
+        let p = clothPoints[i];
+        if (!p.pinned) {
+          let vx = (p.x - p.oldx) * BASE_DAMPING;
+          let vy = (p.y - p.oldy) * BASE_DAMPING;
+          let vz = (p.z - p.oldz) * BASE_DAMPING;
+
+          p.oldx = p.x;
+          p.oldy = p.y;
+          p.oldz = p.z;
+
+          // Wind with Perlin noise
+          let noiseVal = noise(p.x * 0.01, p.y * 0.01, windNoiseOffset) * 2.0;
+          let sinVal = sin(frameCount * 0.01);
+
+          let effectiveWindX = windX * sinVal * noiseVal * windBuffer;
+          let effectiveWindY = windY * sinVal * noiseVal * windBuffer;
+          let effectiveWindZ = windZ * sinVal * noiseVal * windBuffer;
+
+          p.x += vx + effectiveWindX;
+          p.y += vy + BASE_GRAVITY * BASE_WEIGHT + effectiveWindY;
+          p.z += vz + effectiveWindZ;
+        }
+      }
+
+      // Constraint solving
+      for (let iteration = 0; iteration < BASE_ITERATIONS; iteration++) {
+        for (let c of clothConstraints) {
+          let p1 = clothPoints[c.p1];
+          let p2 = clothPoints[c.p2];
+
+          let dx = p2.x - p1.x;
+          let dy = p2.y - p1.y;
+          let dz = p2.z - p1.z;
+          let distVal = sqrt(dx * dx + dy * dy + dz * dz);
+          let diff = (distVal - c.length) / distVal;
+
+          let offsetX = dx * 0.5 * diff;
+          let offsetY = dy * 0.5 * diff;
+          let offsetZ = dz * 0.5 * diff;
+
+          if (!p1.pinned) {
+            p1.x += offsetX;
+            p1.y += offsetY;
+            p1.z += offsetZ;
+          }
+
+          if (!p2.pinned) {
+            p2.x -= offsetX;
+            p2.y -= offsetY;
+            p2.z -= offsetZ;
+          }
+        }
+      }
+
+      calcNormals();
+    }
+
+    function calcNormals() {
+      // Reset normals
+      for (let p of clothPoints) {
+        p.nx = p.ny = p.nz = 0;
+      }
+
+      // Calculate face normals
+      for (let y = 0; y < rows - 1; y++) {
+        for (let x = 0; x < cols - 1; x++) {
+          let i1 = grid[y][x];
+          let i2 = grid[y][x + 1];
+          let i3 = grid[y + 1][x + 1];
+          let i4 = grid[y + 1][x];
+
+          let p1 = clothPoints[i1];
+          let p2 = clothPoints[i2];
+          let p3 = clothPoints[i3];
+          let p4 = clothPoints[i4];
+
+          let ax = p2.x - p1.x, ay = p2.y - p1.y, az = p2.z - p1.z;
+          let bx = p3.x - p1.x, by = p3.y - p1.y, bz = p3.z - p1.z;
+
+          let nx1 = ay * bz - az * by;
+          let ny1 = az * bx - ax * bz;
+          let nz1 = ax * by - ay * bx;
+
+          let cx = p3.x - p1.x, cy = p3.y - p1.y, cz = p3.z - p1.z;
+          let dx = p4.x - p1.x, dy = p4.y - p1.y, dz = p4.z - p1.z;
+
+          let nx2 = cy * dz - cz * dy;
+          let ny2 = cz * dx - cx * dz;
+          let nz2 = cx * dy - cy * dx;
+
+          p1.nx += nx1 + nx2; p1.ny += ny1 + ny2; p1.nz += nz1 + nz2;
+          p2.nx += nx1; p2.ny += ny1; p2.nz += nz1;
+          p3.nx += nx1 + nx2; p3.ny += ny1 + ny2; p3.nz += nz1 + nz2;
+          p4.nx += nx2; p4.ny += ny2; p4.nz += nz2;
+        }
+      }
+
+      // Normalize
+      for (let p of clothPoints) {
+        let len = sqrt(p.nx * p.nx + p.ny * p.ny + p.nz * p.nz);
+        if (len > 0.0001) {
+          p.nx /= len;
+          p.ny /= len;
+          p.nz /= len;
+        } else {
+          p.nx = 0;
+          p.ny = 1;
+          p.nz = 0;
+        }
+      }
+    }
+
+    function drawCloth() {
+      // Draw solid fabric with lighting
+      push();
+
+      // Ambient and directional lighting
+      ambientLight(60, 60, 80);
+      directionalLight(255, 255, 255, 0.5, 1, -0.5);
+
+      noStroke();
+
+      // Draw all quads with lighting
+      for (let y = 0; y < rows - 1; y++) {
+        for (let x = 0; x < cols - 1; x++) {
+          let idx1 = grid[y][x];
+          let idx2 = grid[y][x + 1];
+          let idx3 = grid[y + 1][x + 1];
+          let idx4 = grid[y + 1][x];
+
+          let p1 = clothPoints[idx1];
+          let p2 = clothPoints[idx2];
+          let p3 = clothPoints[idx3];
+          let p4 = clothPoints[idx4];
+
+          // Height-based coloring (like "cloth" mode)
+          let avgY = (p1.y + p2.y + p3.y + p4.y) / 4;
+          let minY = -((rows - 1) * spacing) / 2;
+          let maxY = ((rows - 1) * spacing) / 2;
+          let normalizedY = (avgY - minY) / (maxY - minY);
+
+          // Color gradient from dark blue to light cyan
+          let r = lerp(20, 100, normalizedY);
+          let g = lerp(50, 180, normalizedY);
+          let b = lerp(80, 220, normalizedY);
+
+          fill(r, g, b);
+
+          beginShape();
+          vertex(p1.x, p1.y, p1.z);
+          vertex(p2.x, p2.y, p2.z);
+          vertex(p3.x, p3.y, p3.z);
+          vertex(p4.x, p4.y, p4.z);
+          endShape(CLOSE);
+        }
+      }
+
+      pop();
+
+      // Draw wireframe overlay
+      push();
+      stroke(255, 255, 255, 100);
+      strokeWeight(0.5);
+      noFill();
+
+      // Draw grid lines
+      for (let y = 0; y < rows; y++) {
+        beginShape();
+        for (let x = 0; x < cols; x++) {
+          let idx = grid[y][x];
+          let p = clothPoints[idx];
+          vertex(p.x, p.y, p.z);
+        }
+        endShape();
+      }
+
+      for (let x = 0; x < cols; x++) {
+        beginShape();
+        for (let y = 0; y < rows; y++) {
+          let idx = grid[y][x];
+          let p = clothPoints[idx];
+          vertex(p.x, p.y, p.z);
+        }
+        endShape();
+      }
+
+      // Draw points
+      strokeWeight(3);
+      for (let p of clothPoints) {
+        if (p.pinned) {
+          stroke(150, 150, 150, 200);
+        } else {
+          stroke(255, 255, 255, 150);
+        }
+        point(p.x, p.y, p.z);
+      }
+
+      pop();
+    }
+
+    function draw() {
+      background(15, 20, 30);
+
+      // Set camera with slight rotation for better view
+      camera(camX, camY, camZ, 0, 0, 0, 0, 1, 0);
+      rotateX(rotX);
+      rotateY(rotY);
+
+      updateCloth();
+      drawCloth();
+    }
+
+    function windowResized() {
+      resizeCanvas(windowWidth, windowHeight);
+    }
+
+    // ===== SCROLL EVENT HANDLING =====
+    let scrollTimeout;
+    window.addEventListener('scroll', function() {
+      let currentScrollY = window.pageYOffset || document.documentElement.scrollTop;
+      scrollVelocity = currentScrollY - lastScrollY;
+      lastScrollY = currentScrollY;
+
+      // Update target wind based on scroll
+      targetWindBuffer = 1.5; // Activate wind buffer
+      targetWindZ = -scrollVelocity * 0.02; // Forward/backward wind
+      targetWindY = scrollVelocity * 0.01; // Vertical wind component
+
+      // Hide scroll indicator after first scroll
+      if (currentScrollY > 50) {
+        document.getElementById('scrollIndicator').style.opacity = '0';
+      } else {
+        document.getElementById('scrollIndicator').style.opacity = '1';
+      }
+
+      // Reset wind after scrolling stops
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(function() {
+        targetWindBuffer = 0.3;
+        targetWindZ = 0.1;
+        targetWindY = 0;
+      }, 150);
+    });
+
+    // ===== MOUSE MOVEMENT EVENT HANDLING =====
+    document.addEventListener('mousemove', function(e) {
+      // Normalize mouse position (0 to 1)
+      mouseXNorm = e.clientX / window.innerWidth;
+      mouseYNorm = e.clientY / window.innerHeight;
+
+      // Map to wind direction (-1 to 1)
+      targetWindX = (mouseXNorm - 0.5) * 0.4;
+
+      // Add subtle camera rotation based on mouse
+      rotY = (mouseXNorm - 0.5) * 0.1;
+      rotX = (mouseYNorm - 0.5) * 0.1;
+    });
+
+    // Initialize scroll position
+    lastScrollY = window.pageYOffset || document.documentElement.scrollTop;
+  </script>
+</body>
+</html>
