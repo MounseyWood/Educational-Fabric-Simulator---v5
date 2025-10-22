@@ -187,13 +187,13 @@
     let spacing = 25;
 
     // Physics parameters
-    const BASE_DAMPING = 0.98;
+    const BASE_DAMPING = 0.97;
     const BASE_ITERATIONS = 5;
-    const BASE_GRAVITY = 0.15;
+    const BASE_GRAVITY = 0.3; // Increased for more drape
     const BASE_STRETCH = 1.0;
     const BASE_SHEAR = 1.0;
-    const BASE_BENDING = 1.0;
-    const BASE_WEIGHT = 1.0;
+    const BASE_BENDING = 0.5; // Reduced for more drape/flexibility
+    const BASE_WEIGHT = 1.2; // Increased for more drape
 
     // Constraint types
     const STRUCTURAL = "structural";
@@ -595,16 +595,20 @@
     }
 
     function drawCloth() {
-      // Draw solid fabric with lighting
+      // Find min/max Y for height-based coloring
+      let minY = Infinity, maxY = -Infinity;
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          let pt = clothPoints[grid[y][x]];
+          if (pt.y < minY) minY = pt.y;
+          if (pt.y > maxY) maxY = pt.y;
+        }
+      }
+
+      // Draw solid fabric quads with grey gradient (like original overlaid mode)
       push();
-
-      // Ambient and directional lighting
-      ambientLight(60, 60, 80);
-      directionalLight(255, 255, 255, 0.5, 1, -0.5);
-
       noStroke();
 
-      // Draw all quads with lighting
       for (let y = 0; y < rows - 1; y++) {
         for (let x = 0; x < cols - 1; x++) {
           let idx1 = grid[y][x];
@@ -617,18 +621,11 @@
           let p3 = clothPoints[idx3];
           let p4 = clothPoints[idx4];
 
-          // Height-based coloring (like "cloth" mode)
+          // Height-based grey gradient (bright at top, dark at bottom)
           let avgY = (p1.y + p2.y + p3.y + p4.y) / 4;
-          let minY = -((rows - 1) * spacing) / 2;
-          let maxY = ((rows - 1) * spacing) / 2;
-          let normalizedY = (avgY - minY) / (maxY - minY);
+          let bright = map(avgY, minY, maxY, 80, 220); // Dark to bright
 
-          // Color gradient from dark blue to light cyan
-          let r = lerp(20, 100, normalizedY);
-          let g = lerp(50, 180, normalizedY);
-          let b = lerp(80, 220, normalizedY);
-
-          fill(r, g, b);
+          fill(bright);
 
           beginShape();
           vertex(p1.x, p1.y, p1.z);
@@ -641,42 +638,31 @@
 
       pop();
 
-      // Draw wireframe overlay
+      // Draw ALL constraints as white lines (including diagonals)
       push();
-      stroke(255, 255, 255, 100);
-      strokeWeight(0.5);
+      stroke(255);
+      strokeWeight(1);
       noFill();
 
-      // Draw grid lines
-      for (let y = 0; y < rows; y++) {
-        beginShape();
-        for (let x = 0; x < cols; x++) {
-          let idx = grid[y][x];
-          let p = clothPoints[idx];
-          vertex(p.x, p.y, p.z);
-        }
-        endShape();
+      for (let c of clothConstraints) {
+        let p1 = clothPoints[c.p1];
+        let p2 = clothPoints[c.p2];
+        line(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
       }
 
-      for (let x = 0; x < cols; x++) {
-        beginShape();
-        for (let y = 0; y < rows; y++) {
-          let idx = grid[y][x];
-          let p = clothPoints[idx];
-          vertex(p.x, p.y, p.z);
-        }
-        endShape();
-      }
+      pop();
 
-      // Draw points
-      strokeWeight(3);
-      for (let p of clothPoints) {
-        if (p.pinned) {
-          stroke(150, 150, 150, 200);
-        } else {
-          stroke(255, 255, 255, 150);
-        }
-        point(p.x, p.y, p.z);
+      // Draw all points as white spheres
+      push();
+      fill(255);
+      noStroke();
+
+      for (let i = 0; i < clothPoints.length; i++) {
+        let p = clothPoints[i];
+        push();
+        translate(p.x, p.y, p.z);
+        sphere(2);
+        pop();
       }
 
       pop();
@@ -689,10 +675,10 @@
       userRotX = lerp(userRotX, targetRotX, 0.1);
       userRotY = lerp(userRotY, targetRotY, 0.1);
 
-      // Set camera with slight rotation for better view
+      // Set camera - only use user-controlled rotation (no automatic mouse rotation)
       camera(camX, camY, camZ, 0, 0, 0, 0, 1, 0);
-      rotateX(rotX + userRotX);
-      rotateY(rotY + userRotY);
+      rotateX(userRotX);
+      rotateY(userRotY);
 
       updateCloth();
       drawCloth();
@@ -710,10 +696,10 @@
       scrollVelocity = currentScrollY - lastScrollY;
       lastScrollY = currentScrollY;
 
-      // Update target wind based on scroll
-      targetWindBuffer = 1.5; // Activate wind buffer
-      targetWindZ = -scrollVelocity * 0.02; // Forward/backward wind
-      targetWindY = scrollVelocity * 0.01; // Vertical wind component
+      // Update target wind based on scroll (increased for more effect)
+      targetWindBuffer = 2.5; // Activate wind buffer with stronger effect
+      targetWindZ = -scrollVelocity * 0.05; // Forward/backward wind (increased)
+      targetWindY = scrollVelocity * 0.03; // Vertical wind component (increased)
 
       // Hide scroll indicator after first scroll
       if (currentScrollY > 50) {
@@ -722,11 +708,11 @@
         document.getElementById('scrollIndicator').style.opacity = '1';
       }
 
-      // Reset wind after scrolling stops
+      // Reset wind after scrolling stops (with stronger base wind)
       clearTimeout(scrollTimeout);
       scrollTimeout = setTimeout(function() {
-        targetWindBuffer = 0.3;
-        targetWindZ = 0.1;
+        targetWindBuffer = 0.8; // Increased base wind
+        targetWindZ = 0.2; // Increased base wind
         targetWindY = 0;
       }, 150);
     });
@@ -737,12 +723,8 @@
       mouseXNorm = e.clientX / window.innerWidth;
       mouseYNorm = e.clientY / window.innerHeight;
 
-      // Map to wind direction (-1 to 1)
-      targetWindX = (mouseXNorm - 0.5) * 0.4;
-
-      // Add subtle camera rotation based on mouse
-      rotY = (mouseXNorm - 0.5) * 0.1;
-      rotX = (mouseYNorm - 0.5) * 0.1;
+      // Map to wind direction (-1 to 1) - increased for more effect
+      targetWindX = (mouseXNorm - 0.5) * 0.8;
     });
 
     // Initialize scroll position
