@@ -233,8 +233,8 @@
     let userRotX = 0, userRotY = 0; // User-controlled rotation
     let targetRotX = 0, targetRotY = 0;
 
-    // Middle mouse button rotation
-    let isMiddleMouseDown = false;
+    // Right mouse button rotation
+    let isRightMouseDown = false;
 
     // ===== P5.JS SETUP =====
     function setup() {
@@ -472,11 +472,11 @@
     }
 
     function updateCloth() {
-      // Smoothly interpolate wind values
-      windX = lerp(windX, targetWindX, 0.1);
-      windY = lerp(windY, targetWindY, 0.1);
-      windZ = lerp(windZ, targetWindZ, 0.1);
-      windBuffer = lerp(windBuffer, targetWindBuffer, 0.1);
+      // Smoothly interpolate wind values for responsive but smooth control
+      windX = lerp(windX, targetWindX, 0.15); // Faster response
+      windY = lerp(windY, targetWindY, 0.15);
+      windZ = lerp(windZ, targetWindZ, 0.15);
+      windBuffer = lerp(windBuffer, targetWindBuffer, 0.15);
 
       windNoiseOffset += 0.01;
 
@@ -492,12 +492,12 @@
           p.oldy = p.y;
           p.oldz = p.z;
 
-          // Wind with Perlin noise
-          let noiseVal = noise(p.x * 0.01, p.y * 0.01, windNoiseOffset) * 2.0;
-          let sinVal = sin(frameCount * 0.01);
+          // Wind with subtle variation (less noise for more control)
+          let noiseVal = noise(p.x * 0.005, p.y * 0.005, windNoiseOffset) * 0.5 + 0.75; // Range: 0.75-1.25
+          let sinVal = sin(frameCount * 0.02) * 0.3 + 0.7; // Range: 0.4-1.0
 
-          let effectiveWindX = windX * sinVal * noiseVal * windBuffer;
-          let effectiveWindY = windY * sinVal * noiseVal * windBuffer;
+          let effectiveWindX = windX * sinVal * noiseVal;
+          let effectiveWindY = windY * sinVal * noiseVal;
           let effectiveWindZ = windZ * sinVal * noiseVal * windBuffer;
 
           p.x += vx + effectiveWindX;
@@ -638,31 +638,67 @@
 
       pop();
 
-      // Draw ALL constraints as white lines (including diagonals)
+      // Draw only main grid lines (not all constraints) - cleaner look
       push();
-      stroke(255);
-      strokeWeight(1);
+      stroke(255, 255, 255, 150); // Semi-transparent white
+      strokeWeight(0.8);
       noFill();
 
-      for (let c of clothConstraints) {
-        let p1 = clothPoints[c.p1];
-        let p2 = clothPoints[c.p2];
-        line(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+      // Horizontal lines
+      for (let y = 0; y < rows; y++) {
+        beginShape();
+        for (let x = 0; x < cols; x++) {
+          let idx = grid[y][x];
+          let p = clothPoints[idx];
+          vertex(p.x, p.y, p.z);
+        }
+        endShape();
+      }
+
+      // Vertical lines
+      for (let x = 0; x < cols; x++) {
+        beginShape();
+        for (let y = 0; y < rows; y++) {
+          let idx = grid[y][x];
+          let p = clothPoints[idx];
+          vertex(p.x, p.y, p.z);
+        }
+        endShape();
+      }
+
+      // Draw diagonal lines for visual interest (but only main grid)
+      for (let y = 0; y < rows - 1; y++) {
+        for (let x = 0; x < cols - 1; x++) {
+          let idx1 = grid[y][x];
+          let idx2 = grid[y + 1][x + 1];
+          let p1 = clothPoints[idx1];
+          let p2 = clothPoints[idx2];
+          line(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+
+          let idx3 = grid[y][x + 1];
+          let idx4 = grid[y + 1][x];
+          let p3 = clothPoints[idx3];
+          let p4 = clothPoints[idx4];
+          line(p3.x, p3.y, p3.z, p4.x, p4.y, p4.z);
+        }
       }
 
       pop();
 
-      // Draw all points as white spheres
+      // Draw only main grid points (not subdivided mesh points)
       push();
-      fill(255);
+      fill(255, 255, 255, 200);
       noStroke();
 
-      for (let i = 0; i < clothPoints.length; i++) {
-        let p = clothPoints[i];
-        push();
-        translate(p.x, p.y, p.z);
-        sphere(2);
-        pop();
+      for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+          let idx = grid[y][x];
+          let p = clothPoints[idx];
+          push();
+          translate(p.x, p.y, p.z);
+          sphere(1.5); // Smaller spheres
+          pop();
+        }
       }
 
       pop();
@@ -730,31 +766,31 @@
     // Initialize scroll position
     lastScrollY = window.pageYOffset || document.documentElement.scrollTop;
 
-    // ===== MIDDLE MOUSE BUTTON ROTATION =====
+    // ===== RIGHT MOUSE BUTTON ROTATION =====
     // Helper function to constrain values
     function constrainValue(value, min, max) {
       return Math.min(Math.max(value, min), max);
     }
 
-    // Detect middle mouse button press
+    // Detect right mouse button press
     document.addEventListener('mousedown', function(e) {
-      if (e.button === 1) { // Middle mouse button
-        isMiddleMouseDown = true;
+      if (e.button === 2) { // Right mouse button
+        isRightMouseDown = true;
         e.preventDefault();
       }
     });
 
-    // Detect middle mouse button release
+    // Detect right mouse button release
     document.addEventListener('mouseup', function(e) {
-      if (e.button === 1) {
-        isMiddleMouseDown = false;
+      if (e.button === 2) {
+        isRightMouseDown = false;
         e.preventDefault();
       }
     });
 
-    // Handle mouse wheel for rotation when middle button is held
+    // Handle mouse wheel for rotation when right button is held
     document.addEventListener('wheel', function(e) {
-      if (isMiddleMouseDown) {
+      if (isRightMouseDown) {
         e.preventDefault();
 
         // Update rotation based on wheel delta
@@ -769,18 +805,16 @@
       }
     }, { passive: false });
 
-    // Prevent context menu on middle mouse button
+    // Prevent context menu on right mouse button
     document.addEventListener('contextmenu', function(e) {
-      if (isMiddleMouseDown) {
-        e.preventDefault();
-      }
+      e.preventDefault();
     });
 
     // Update instructions in the first content section
     document.querySelector('.content-section p:nth-of-type(2)').innerHTML = `
       <strong>Scroll down</strong> to create wind effects that buffet the fabric.
-      <strong>Move your cursor</strong> to influence the direction of the wind across the screen.
-      <strong>Hold middle mouse button and scroll</strong> to rotate the fabric and view it from different angles.
+      <strong>Move your cursor left/right</strong> to control the horizontal wind direction.
+      <strong>Hold right mouse button and scroll</strong> to rotate the fabric and view it from different angles.
     `;
   </script>
 </body>
